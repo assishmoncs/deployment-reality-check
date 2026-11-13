@@ -6,17 +6,15 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const rootDir = path.resolve(__dirname, '..');
-const localVitest = path.join(rootDir, 'node_modules', '.bin', process.platform === 'win32' ? 'vitest.cmd' : 'vitest');
+// Run Vitest's JS entrypoint directly instead of the platform-specific .cmd shim.
+const localVitest = path.join(rootDir, 'node_modules', 'vitest', 'vitest.mjs');
 
 if (fs.existsSync(localVitest)) {
-  const isWindows = process.platform === 'win32';
-  const res = spawnSync(
-    isWindows ? process.env.ComSpec || 'cmd.exe' : localVitest,
-    isWindows
-      ? ['/d', '/s', '/c', '"', localVitest, 'run', '--coverage', '"']
-      : ['run', '--coverage'],
-    { cwd: rootDir, stdio: 'inherit', windowsVerbatimArguments: isWindows },
-  );
+  const res = spawnSync(process.execPath, [localVitest, 'run', '--coverage'], {
+    cwd: rootDir,
+    stdio: 'inherit',
+  });
+  if (res.error) throw res.error;
   process.exit(res.status ?? 1);
 }
 

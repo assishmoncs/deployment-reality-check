@@ -7,17 +7,16 @@ const Module = require('module');
 const { spawnSync } = require('child_process');
 
 const rootDir = path.resolve(__dirname, '..');
-const localVitest = path.join(rootDir, 'node_modules', '.bin', process.platform === 'win32' ? 'vitest.cmd' : 'vitest');
+// Run Vitest's JS entrypoint through the current Node executable. This avoids
+// spawning vitest.cmd and works consistently on Windows, macOS, and Linux.
+const localVitest = path.join(rootDir, 'node_modules', 'vitest', 'vitest.mjs');
 
 if (fs.existsSync(localVitest)) {
-  const isWindows = process.platform === 'win32';
-  const res = spawnSync(
-    isWindows ? process.env.ComSpec || 'cmd.exe' : localVitest,
-    isWindows
-      ? ['/d', '/s', '/c', '"', localVitest, 'run', ...process.argv.slice(2), '"']
-      : ['run', ...process.argv.slice(2)],
-    { cwd: rootDir, stdio: 'inherit', windowsVerbatimArguments: isWindows },
-  );
+  const res = spawnSync(process.execPath, [localVitest, 'run', ...process.argv.slice(2)], {
+    cwd: rootDir,
+    stdio: 'inherit',
+  });
+  if (res.error) throw res.error;
   process.exit(res.status ?? 1);
 }
 

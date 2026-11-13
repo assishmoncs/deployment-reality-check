@@ -26,9 +26,11 @@ jobs:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Pin npm (fixes the npm 10 Arborist peer-resolution crash)
+        run: npm install --global npm@11.21.2
+
       - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+        run: npm install
 
       - name: Run full verification pipeline
         run: |
