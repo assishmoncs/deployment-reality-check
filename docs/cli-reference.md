@@ -2,19 +2,19 @@
 
 ## Global Options
 
-| Flag | Description |
-| :--- | :--- |
-| `-v, --version` | Print the DRC version, platform, and Node.js runtime version |
-| `-h, --help` | Print general or command-specific usage documentation |
-| `--no-color` | Disable ANSI colors (also respects `NO_COLOR` and `TERM=dumb`) |
+| Flag            | Description                                                    |
+| :-------------- | :------------------------------------------------------------- |
+| `-v, --version` | Print the DRC version, platform, and Node.js runtime version   |
+| `-h, --help`    | Print general or command-specific usage documentation          |
+| `--no-color`    | Disable ANSI colors (also respects `NO_COLOR` and `TERM=dumb`) |
 
 ## Exit Codes
 
-| Exit Code | Meaning |
-| :--- | :--- |
-| `0` | Scan or verification completed without findings meeting the failure threshold |
-| `1` | One or more findings met or exceeded the selected `--fail-on` severity threshold (or verification failed) |
-| `2` | Usage error, invalid CLI option, invalid target directory, or unsupported platform |
+| Exit Code | Meaning                                                                                                   |
+| :-------- | :-------------------------------------------------------------------------------------------------------- |
+| `0`       | Scan or verification completed without findings meeting the failure threshold                             |
+| `1`       | One or more findings met or exceeded the selected `--fail-on` severity threshold (or verification failed) |
+| `2`       | Usage error, invalid CLI option, invalid target directory, or unsupported platform                        |
 
 ## `drc scan [path]`
 
@@ -30,6 +30,7 @@ drc scan . --fail-on warning
 ```
 
 ### Options
+
 - `-p, --platform <vercel|railway>`: Explicitly set target deployment platform.
 - `-f, --format <terminal|json|sarif>`: Output format (default: `terminal`).
 - `--fail-on <critical|warning|info|none>`: Minimum severity that causes exit code `1` (default: `critical`).

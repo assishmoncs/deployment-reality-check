@@ -102,11 +102,7 @@ export function discoverDeploymentConfigs(
   for (const file of allFiles) {
     const base = path.posix.basename(file);
 
-    if (
-      base === '.env.example' ||
-      base === '.env.sample' ||
-      base === '.env.template'
-    ) {
+    if (base === '.env.example' || base === '.env.sample' || base === '.env.template') {
       envExampleFilesFound.push(file);
       const readRes = readTextFileSafe(rootDir, file);
       if (readRes.content) {
@@ -200,11 +196,7 @@ export function discoverDeploymentConfigs(
       }
     }
 
-    if (
-      base === 'next.config.js' ||
-      base === 'next.config.mjs' ||
-      base === 'next.config.ts'
-    ) {
+    if (base === 'next.config.js' || base === 'next.config.mjs' || base === 'next.config.ts') {
       configFacts.nextConfigPath = file;
       const readRes = readTextFileSafe(rootDir, file);
       if (readRes.content) {
@@ -212,11 +204,7 @@ export function discoverDeploymentConfigs(
       }
     }
 
-    if (
-      base === 'vite.config.ts' ||
-      base === 'vite.config.js' ||
-      base === 'vite.config.mjs'
-    ) {
+    if (base === 'vite.config.ts' || base === 'vite.config.js' || base === 'vite.config.mjs') {
       configFacts.viteConfigPath = file;
       const readRes = readTextFileSafe(rootDir, file);
       if (readRes.content) {

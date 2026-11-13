@@ -1,4 +1,4 @@
-import { VercelPlatformAdapter } from "./vercel";
+import { VercelPlatformAdapter } from './vercel';
 import { FrameworkType, ProjectManifest } from '../core/project-manifest';
 import { PlatformAdapter, PlatformCapabilitySpec } from './adapter';
 
@@ -15,8 +15,10 @@ export const RAILWAY_CAPABILITIES: PlatformCapabilitySpec = {
   limitsSummary: {
     functionDurationNote:
       'No per-request invocation timeout for persistent container services; old deployments receive SIGTERM on redeploy (configurable via RAILWAY_DEPLOYMENT_DRAINING_SECONDS).',
-    bundleSizeNote: 'Container image build with Nixpacks or Dockerfile; no 250 MB serverless bundle cap.',
-    memoryNote: 'Plan-dependent container resources (Hobby / Pro scaling vCPU and RAM per service).',
+    bundleSizeNote:
+      'Container image build with Nixpacks or Dockerfile; no 250 MB serverless bundle cap.',
+    memoryNote:
+      'Plan-dependent container resources (Hobby / Pro scaling vCPU and RAM per service).',
     filesystemNote:
       'Container filesystem is ephemeral across deployments and restarts unless a Railway Volume is explicitly attached (indicated via RAILWAY_VOLUME_MOUNT_PATH).',
   },

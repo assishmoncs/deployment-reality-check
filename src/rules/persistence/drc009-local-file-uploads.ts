@@ -11,7 +11,8 @@ export const drc009LocalFileUploadsRule: DeploymentRule = {
     platforms: ['vercel', 'railway'],
     autofixEligible: false,
     fixSafety: 'manual-guided',
-    summary: 'Application saves user-uploaded files to the local container or serverless filesystem.',
+    summary:
+      'Application saves user-uploaded files to the local container or serverless filesystem.',
     whatItMeans:
       'Your code stores uploaded files on local disk (using multer diskStorage, upload directories, or fs.writeFile to ./uploads or ./public/uploads).',
     whyItHappens:
@@ -23,7 +24,8 @@ export const drc009LocalFileUploadsRule: DeploymentRule = {
     howToResolve:
       'Store user uploads in object storage such as AWS S3, Cloudflare R2, Supabase Storage, or Vercel Blob (or attach a Railway Volume for single-container persistence).',
     PlatformNotes: {
-      vercel: 'Use Vercel Blob, AWS S3, Cloudflare R2, or Supabase Storage with direct client uploads.',
+      vercel:
+        'Use Vercel Blob, AWS S3, Cloudflare R2, or Supabase Storage with direct client uploads.',
       railway: 'Use S3-compatible object storage (or attach a Railway Volume to the upload path).',
     },
     docsUrls: {
@@ -67,7 +69,8 @@ export const drc009LocalFileUploadsRule: DeploymentRule = {
         fix: {
           eligible: false,
           safety: 'manual-guided',
-          description: 'Switch from local disk storage to cloud object storage (S3 / R2 / Supabase Storage / Vercel Blob).',
+          description:
+            'Switch from local disk storage to cloud object storage (S3 / R2 / Supabase Storage / Vercel Blob).',
         },
         docsUrl: adapter.capabilities.officialDocs.storage,
       });

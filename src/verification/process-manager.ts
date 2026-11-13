@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { redactSecrets } from '../utils/redactor';
+import { terminateProcessTree } from '../utils/process-tree';
 
 export interface BoundedProcessOptions {
   cwd: string;
@@ -38,6 +39,16 @@ export async function runBoundedProcess(
     let timedOut = false;
     let settled = false;
 
+    // Windows cannot spawn .cmd shims directly. Only allow the shell for the
+    // known package-manager script commands used by the build/start verifiers;
+    // their command and arguments are selected from fixed allowlists.
+    const isWindowsPackageManagerScript =
+      process.platform === 'win32' &&
+      /^(?:npm|yarn|pnpm)\.cmd$/i.test(options.command) &&
+      options.args.length === 2 &&
+      options.args[0] === 'run' &&
+      (options.args[1] === 'build' || options.args[1] === 'start');
+
     const child = spawn(options.command, options.args, {
       cwd: options.cwd,
       env: {
@@ -45,7 +56,8 @@ export async function runBoundedProcess(
         ...options.env,
         CI: 'true',
       },
-      shell: false,
+      shell: isWindowsPackageManagerScript,
+      detached: process.platform !== 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -72,26 +84,17 @@ export async function runBoundedProcess(
       });
     }
 
+    let termination: Promise<void> | undefined;
     const timer = setTimeout(() => {
       timedOut = true;
-      try {
-        child.kill('SIGTERM');
-        setTimeout(() => {
-          try {
-            child.kill('SIGKILL');
-          } catch {
-            // already exited
-          }
-        }, 500);
-      } catch {
-        // ignore kill error
-      }
+      termination = terminateProcessTree(child);
     }, timeoutMs);
 
-    const finish = (code: number | null) => {
+    const finish = async (code: number | null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      if (termination) await termination;
       resolve({
         exitCode: code,
         timedOut,

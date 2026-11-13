@@ -11,7 +11,8 @@ export const drc008CorsMismatchRule: DeploymentRule = {
     platforms: ['vercel', 'railway'],
     autofixEligible: true,
     fixSafety: 'approval-required',
-    summary: 'Backend CORS configuration hardcodes a localhost origin or pairs wildcard origin "*" with credentials: true.',
+    summary:
+      'Backend CORS configuration hardcodes a localhost origin or pairs wildcard origin "*" with credentials: true.',
     whatItMeans:
       'Your backend server configures Cross-Origin Resource Sharing (CORS) with a hardcoded localhost origin (e.g., http://localhost:5173) or invalidly combines origin: "*" with credentials: true.',
     whyItHappens:
@@ -24,7 +25,8 @@ export const drc008CorsMismatchRule: DeploymentRule = {
       'Configure CORS origin via an environment variable (e.g., `origin: process.env.CORS_ORIGIN || "http://localhost:5173"`).',
     PlatformNotes: {
       vercel: 'Set CORS_ORIGIN to your Vercel production domain (and preview domains if needed).',
-      railway: 'Set CORS_ORIGIN in your Railway backend service variables to match your deployed frontend domain.',
+      railway:
+        'Set CORS_ORIGIN in your Railway backend service variables to match your deployed frontend domain.',
     },
     docsUrls: {
       vercel: 'https://vercel.com/docs/projects/environment-variables',

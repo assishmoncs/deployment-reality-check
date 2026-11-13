@@ -6,13 +6,16 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const rootDir = path.resolve(__dirname, '..');
-const localTsc = path.join(rootDir, 'node_modules', '.bin', process.platform === 'win32' ? 'tsc.cmd' : 'tsc');
+// Invoke the TypeScript JS entrypoint directly instead of tsc.cmd. This avoids
+// shell-dependent child-process behavior on Windows.
+const localTsc = path.join(rootDir, 'node_modules', 'typescript', 'bin', 'tsc');
 
 if (fs.existsSync(localTsc)) {
-  const res = spawnSync(localTsc, ['--noEmit', '-p', path.join(rootDir, 'tsconfig.json')], {
+  const res = spawnSync(process.execPath, [localTsc, '--noEmit', '-p', path.join(rootDir, 'tsconfig.json')], {
     cwd: rootDir,
     stdio: 'inherit',
   });
+  if (res.error) throw res.error;
   process.exit(res.status ?? 1);
 }
 

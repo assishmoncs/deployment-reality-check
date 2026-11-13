@@ -6,7 +6,10 @@ import { RuleEngine } from '../../src/core/rule-engine';
 import { getAllRules } from '../../src/core/rule-registry';
 import { discoverProject } from '../../src/discovery';
 import { getPlatformAdapter } from '../../src/platforms/railway';
-import { applyPatchSafely, validateGeneratedFileContent } from '../../src/remediation/patch-applier';
+import {
+  applyPatchSafely,
+  validateGeneratedFileContent,
+} from '../../src/remediation/patch-applier';
 import { generateFixPlan } from '../../src/remediation/patch-generator';
 import { renderJsonScanReport } from '../../src/reporting/json';
 import { renderSarifScanReport } from '../../src/reporting/sarif';
@@ -67,7 +70,9 @@ NODE_ENV=production`;
     expect(formatFrameworkDisplayName('react-vite', false, ['react-vite'])).toBe('React (Vite)');
     expect(formatFrameworkDisplayName('express', false, ['express'])).toBe('Node.js (Express)');
     expect(formatFrameworkDisplayName('unknown', false, [])).toContain('Unknown');
-    expect(formatFrameworkDisplayName('nextjs', true, ['react-vite', 'express'])).toContain('Monorepo');
+    expect(formatFrameworkDisplayName('nextjs', true, ['react-vite', 'express'])).toContain(
+      'Monorepo',
+    );
 
     const vercelAdapter = getPlatformAdapter('vercel');
     const railwayAdapter = getPlatformAdapter('railway');
@@ -144,7 +149,7 @@ NODE_ENV=production`;
           name: 'full-fix-test',
           dependencies: { next: '14.0.0', express: '4.19.0', cors: '2.8.5' },
           scripts: { start: 'nodemon src/server.ts' },
-           devDependencies: { typescript: '5.0.0' },
+          devDependencies: { typescript: '5.0.0' },
         },
         null,
         2,

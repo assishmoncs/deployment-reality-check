@@ -50,12 +50,15 @@ for (const file of files) {
   });
 }
 
-const localEslint = path.join(rootDir, 'node_modules', '.bin', process.platform === 'win32' ? 'eslint.cmd' : 'eslint');
+// Invoke ESLint's JavaScript entrypoint directly instead of the platform-specific
+// .cmd shim. This keeps the script portable across Windows, macOS, and Linux.
+const localEslint = path.join(rootDir, 'node_modules', 'eslint', 'bin', 'eslint.js');
 if (fs.existsSync(localEslint)) {
-  const res = spawnSync(localEslint, ['src', 'tests', '--ext', '.ts'], {
+  const res = spawnSync(process.execPath, [localEslint, 'src', 'tests', '--ext', '.ts'], {
     cwd: rootDir,
     stdio: 'inherit',
   });
+  if (res.error) throw res.error;
   if (res.status !== 0) process.exit(res.status ?? 1);
 }
 

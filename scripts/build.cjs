@@ -30,15 +30,17 @@ function collectFiles(dir, result = []) {
 }
 
 function tryTsc() {
-  const localTsc = path.join(rootDir, 'node_modules', '.bin', process.platform === 'win32' ? 'tsc.cmd' : 'tsc');
-  if (fs.existsSync(localTsc)) {
-    const res = spawnSync(localTsc, ['-p', path.join(rootDir, 'tsconfig.json')], {
-      cwd: rootDir,
-      stdio: 'inherit',
-    });
-    return res.status === 0;
-  }
-  return false;
+  // Invoke TypeScript's JS entrypoint directly to avoid platform-specific .cmd shims.
+  const localTsc = path.join(rootDir, 'node_modules', 'typescript', 'bin', 'tsc');
+  if (!fs.existsSync(localTsc)) return false;
+
+  const res = spawnSync(process.execPath, [localTsc, '-p', path.join(rootDir, 'tsconfig.json')], {
+    cwd: rootDir,
+    stdio: 'inherit',
+  });
+  if (res.error) throw res.error;
+  if (res.status !== 0) process.exit(res.status ?? 1);
+  return true;
 }
 
 function compileWithBabel() {

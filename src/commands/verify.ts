@@ -80,13 +80,19 @@ export async function executeVerifyCommand(
   if (manifest.parseErrors.length === 0) {
     lines.push(`${s.green('✓')} Configuration and source syntax validation passed`);
   } else {
-    lines.push(`${s.red('✗')} Configuration/source syntax errors found (${manifest.parseErrors.length})`);
+    lines.push(
+      `${s.red('✗')} Configuration/source syntax errors found (${manifest.parseErrors.length})`,
+    );
   }
 
   if (criticalCount === 0) {
-    lines.push(`${s.green('✓')} Static analysis passed with 0 critical blockers (${warningCount} warning(s))`);
+    lines.push(
+      `${s.green('✓')} Static analysis passed with 0 critical blockers (${warningCount} warning(s))`,
+    );
   } else {
-    lines.push(`${s.red('✗')} Static analysis found ${criticalCount} critical blocker(s) and ${warningCount} warning(s)`);
+    lines.push(
+      `${s.red('✗')} Static analysis found ${criticalCount} critical blocker(s) and ${warningCount} warning(s)`,
+    );
   }
 
   let buildFailed = false;
@@ -112,7 +118,9 @@ export async function executeVerifyCommand(
     if (!buildReport.executed) {
       lines.push(`${s.yellow('⚠')} ${buildReport.skippedReason}`);
     } else if (buildReport.success) {
-      lines.push(`${s.green('✓')} Production build check succeeded (${buildReport.result?.durationMs ?? 0}ms)`);
+      lines.push(
+        `${s.green('✓')} Production build check succeeded (${buildReport.result?.durationMs ?? 0}ms)`,
+      );
     } else {
       buildFailed = true;
       lines.push(`${s.red('✗')} Production build check failed`);
@@ -121,7 +129,9 @@ export async function executeVerifyCommand(
       }
     }
   } else if (options.noExec) {
-    lines.push(`${s.blue('ℹ')} Dynamic process execution disabled via --no-exec (static verification only)`);
+    lines.push(
+      `${s.blue('ℹ')} Dynamic process execution disabled via --no-exec (static verification only)`,
+    );
   }
 
   // 3. Optional startup check
@@ -156,7 +166,9 @@ export async function executeVerifyCommand(
   if (ready) {
     lines.push(s.bold(s.green('Verification Result: PASSED — Project is ready for deployment.')));
   } else {
-    lines.push(s.bold(s.red('Verification Result: FAILED — Resolve critical issues before deploying.')));
+    lines.push(
+      s.bold(s.red('Verification Result: FAILED — Resolve critical issues before deploying.')),
+    );
   }
 
   return {

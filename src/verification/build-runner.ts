@@ -31,10 +31,10 @@ export async function runProductionBuildCheck(
     options.packageManager === 'yarn'
       ? 'yarn'
       : options.packageManager === 'pnpm'
-      ? 'pnpm'
-      : options.packageManager === 'bun'
-      ? 'bun'
-      : 'npm';
+        ? 'pnpm'
+        : options.packageManager === 'bun'
+          ? 'bun'
+          : 'npm';
 
   const execBin = process.platform === 'win32' && bin !== 'bun' ? `${bin}.cmd` : bin;
   const result = await runBoundedProcess({

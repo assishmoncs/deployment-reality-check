@@ -1,4 +1,5 @@
-const SECRET_KEY_PATTERN = /(secret|password|passwd|token|api[_-]?key|private[_-]?key|service[_-]?role|access[_-]?key|client[_-]?secret|jwt|auth|dsn|connection[_-]?string|database[_-]?url)/i;
+const SECRET_KEY_PATTERN =
+  /(secret|password|passwd|token|api[_-]?key|private[_-]?key|service[_-]?role|access[_-]?key|client[_-]?secret|jwt|auth|dsn|connection[_-]?string|database[_-]?url)/i;
 
 const SECRET_VALUE_PATTERNS: RegExp[] = [
   /\bsk_(live|test)_[0-9a-zA-Z]{10,}\b/g,
@@ -46,7 +47,7 @@ export function redactSecrets(input: string): string {
     /^(\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*)(.+)$/gm,
     (_full, prefix: string, rawVal: string) => {
       const keyMatch = prefix.match(/([A-Za-z_][A-Za-z0-9_]*)/);
-      const keyName = keyMatch ? keyMatch[1] ?? '' : '';
+      const keyName = keyMatch ? (keyMatch[1] ?? '') : '';
       const trimmedVal = rawVal.trim();
       if (
         trimmedVal === '' ||
@@ -74,7 +75,12 @@ export function generateSafeEnvPlaceholder(varName: string): string {
   if (upper.includes('DATABASE_URL') || upper.includes('POSTGRES')) {
     return 'postgresql://user:password@hostname:5432/dbname';
   }
-  if (upper.includes('URL') || upper.includes('ORIGIN') || upper.includes('ENDPOINT') || upper.includes('HOST')) {
+  if (
+    upper.includes('URL') ||
+    upper.includes('ORIGIN') ||
+    upper.includes('ENDPOINT') ||
+    upper.includes('HOST')
+  ) {
     return 'https://api.example.com';
   }
   if (upper.includes('PORT')) {

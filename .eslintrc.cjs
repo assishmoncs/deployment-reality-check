@@ -16,6 +16,8 @@ module.exports = {
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/no-var-requires': 'off',
+    // The source intentionally uses CommonJS requires for runtime-loaded modules.
+    '@typescript-eslint/no-require-imports': 'off',
     'no-eval': 'error',
     'no-implied-eval': 'error',
     'prefer-const': 'error',

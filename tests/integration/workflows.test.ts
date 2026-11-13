@@ -23,7 +23,8 @@ const LABELED_EVALUATION_DATASET: LabeledEvalFixture[] = [
         dependencies: { next: '14.2.0', react: '18.3.0' },
         scripts: { build: 'next build', start: 'next start' },
       }),
-      '.env.example': 'NEXT_PUBLIC_API_URL=https://api.example.com\nDATABASE_URL=postgresql://user:pass@host:5432/db\n',
+      '.env.example':
+        'NEXT_PUBLIC_API_URL=https://api.example.com\nDATABASE_URL=postgresql://user:pass@host:5432/db\n',
       'src/app/page.tsx': `'use client'; export const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';`,
       'src/app/api/users/route.ts': `export async function GET() { return Response.json({ db: Boolean(process.env.DATABASE_URL) }); }`,
     },
@@ -38,7 +39,8 @@ const LABELED_EVALUATION_DATASET: LabeledEvalFixture[] = [
         dependencies: { express: '4.19.2', cors: '2.8.5' },
         scripts: { start: 'node src/index.js' },
       }),
-      '.env.example': 'CORS_ORIGIN=https://app.example.com\nDATABASE_URL=postgresql://user:pass@host:5432/db\n',
+      '.env.example':
+        'CORS_ORIGIN=https://app.example.com\nDATABASE_URL=postgresql://user:pass@host:5432/db\n',
       'src/index.js': `const express = require('express');
 const cors = require('cors');
 const app = express();

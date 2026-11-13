@@ -61,7 +61,8 @@ export function summarizeProjectFrameworks(services: ServicePackageInfo[]): {
   }
 
   const nonRootServices = services.filter((s) => s.relativePath !== '.');
-  const isMonorepo = nonRootServices.length >= 2 || (services.length >= 2 && detectedFrameworks.length >= 2);
+  const isMonorepo =
+    nonRootServices.length >= 2 || (services.length >= 2 && detectedFrameworks.length >= 2);
 
   return {
     detectedFrameworks,

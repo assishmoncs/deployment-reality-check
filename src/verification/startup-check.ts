@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import * as http from 'http';
 import { PackageManagerType } from '../core/project-manifest';
 import { redactSecrets } from '../utils/redactor';
+import { terminateProcessTree } from '../utils/process-tree';
 
 export interface StartupCheckOptions {
   rootDir: string;
@@ -25,8 +26,7 @@ export async function runControlledStartupCheck(
   if (!options.allowExec) {
     return {
       executed: false,
-      skippedReason:
-        'Startup health check skipped (requires explicit --allow-exec permission).',
+      skippedReason: 'Startup health check skipped (requires explicit --allow-exec permission).',
       success: true,
       logs: '',
     };
@@ -38,16 +38,21 @@ export async function runControlledStartupCheck(
     options.packageManager === 'yarn'
       ? 'yarn'
       : options.packageManager === 'pnpm'
-      ? 'pnpm'
-      : options.packageManager === 'bun'
-      ? 'bun'
-      : 'npm';
+        ? 'pnpm'
+        : options.packageManager === 'bun'
+          ? 'bun'
+          : 'npm';
   const execBin = process.platform === 'win32' && bin !== 'bun' ? `${bin}.cmd` : bin;
   const isPosix = process.platform !== 'win32';
 
   return new Promise<StartupCheckReport>((resolve) => {
     let logs = '';
     let settled = false;
+
+    // npm/yarn/pnpm expose .cmd shims on Windows; those must be launched
+    // through cmd.exe. The command is allowlisted above and arguments are fixed.
+    const useWindowsCommandShell =
+      process.platform === 'win32' && /^(?:npm|yarn|pnpm)\.cmd$/i.test(execBin);
 
     const child = spawn(execBin, ['run', 'start'], {
       cwd: options.rootDir,
@@ -56,7 +61,7 @@ export async function runControlledStartupCheck(
         PORT: String(port),
         NODE_ENV: 'production',
       },
-      shell: false,
+      shell: useWindowsCommandShell,
       detached: isPosix,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -72,33 +77,10 @@ export async function runControlledStartupCheck(
       });
     }
 
-    const killProcessTree = () => {
-      try {
-        if (isPosix && child.pid) {
-          process.kill(-child.pid, 'SIGTERM');
-        } else {
-          child.kill('SIGTERM');
-        }
-      } catch {
-        // already exited
-      }
-      setTimeout(() => {
-        try {
-          if (isPosix && child.pid) {
-            process.kill(-child.pid, 'SIGKILL');
-          } else {
-            child.kill('SIGKILL');
-          }
-        } catch {
-          // already exited
-        }
-      }, 200);
-    };
-
-    const cleanupAndResolve = (report: StartupCheckReport) => {
+    const cleanupAndResolve = async (report: StartupCheckReport) => {
       if (settled) return;
       settled = true;
-      killProcessTree();
+      await terminateProcessTree(child);
       resolve({
         ...report,
         logs: redactSecrets(logs),
@@ -131,6 +113,16 @@ export async function runControlledStartupCheck(
         // server not listening yet
       });
     }, 250);
+
+    child.on('error', (error) => {
+      clearInterval(probeInterval);
+      clearTimeout(timer);
+      cleanupAndResolve({
+        executed: true,
+        success: false,
+        logs: `${logs}\nProcess spawn error: ${error.message}`,
+      });
+    });
 
     child.on('close', (code) => {
       clearInterval(probeInterval);

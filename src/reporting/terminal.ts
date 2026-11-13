@@ -12,7 +12,11 @@ export interface ScanReportMetadata {
   passedChecksCount: number;
 }
 
-export function formatFrameworkDisplayName(fw: FrameworkType, isMonorepo: boolean, allFrameworks: FrameworkType[]): string {
+export function formatFrameworkDisplayName(
+  fw: FrameworkType,
+  isMonorepo: boolean,
+  allFrameworks: FrameworkType[],
+): string {
   if (isMonorepo && allFrameworks.length > 1) {
     const names = allFrameworks.map((f) => {
       if (f === 'nextjs') return 'Next.js';
@@ -61,8 +65,8 @@ export function renderTerminalScanReport(
   if (meta.manifest.services.length > 0) {
     lines.push(`${s.green('✓')} Project structure detected`);
   }
-  const hasBuildOrStart = meta.manifest.services.some(
-    (svc) => Boolean(svc.scripts.build || svc.scripts.start),
+  const hasBuildOrStart = meta.manifest.services.some((svc) =>
+    Boolean(svc.scripts.build || svc.scripts.start),
   );
   if (hasBuildOrStart && !meta.findings.some((f) => f.ruleId === 'DRC004')) {
     lines.push(`${s.green('✓')} Production build/start script found`);
@@ -78,15 +82,15 @@ export function renderTerminalScanReport(
         f.severity === 'critical'
           ? s.red('✗')
           : f.severity === 'warning'
-          ? s.yellow('⚠')
-          : s.blue('ℹ');
+            ? s.yellow('⚠')
+            : s.blue('ℹ');
       const headerText = `${f.ruleId} — ${f.title}`;
       const styledHeader =
         f.severity === 'critical'
           ? s.bold(s.red(headerText))
           : f.severity === 'warning'
-          ? s.bold(s.yellow(headerText))
-          : s.bold(s.blue(headerText));
+            ? s.bold(s.yellow(headerText))
+            : s.bold(s.blue(headerText));
 
       lines.push(`${icon} ${styledHeader}`);
       if (f.file) {

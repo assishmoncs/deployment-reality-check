@@ -5,7 +5,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { discoverProject } from '../../src/discovery';
 import { parseDotenvKeys, parseSimpleToml } from '../../src/discovery/config-reader';
 import { walkProjectFiles } from '../../src/discovery/file-walker';
-import { assertSafeProjectPath, isLikelyBinaryBuffer, normalizePosixPath, readTextFileSafe } from '../../src/utils/fs-safe';
+import {
+  assertSafeProjectPath,
+  isLikelyBinaryBuffer,
+  normalizePosixPath,
+  readTextFileSafe,
+} from '../../src/utils/fs-safe';
 import { resolveTargetPlatform } from '../../src/utils/prompts';
 import { validateJsonSafe } from '../../src/utils/schema';
 
@@ -81,14 +86,19 @@ describe('Discovery Subsystem & Security Safeguards', () => {
   });
 
   it('parses .env keys and simple TOML configurations with error handling', () => {
-    const keys = parseDotenvKeys('# comment\nDATABASE_URL=postgres://localhost/db\nexport API_KEY = "123"\n');
+    const keys = parseDotenvKeys(
+      '# comment\nDATABASE_URL=postgres://localhost/db\nexport API_KEY = "123"\n',
+    );
     expect(keys).toEqual(['DATABASE_URL', 'API_KEY']);
 
-    const validToml = parseSimpleToml('[build]\nbuilder = "NIXPACKS"\n[deploy]\nstartCommand = "npm start"\nreplicas = 2\nhealthcheck = true');
+    const validToml = parseSimpleToml(
+      '[build]\nbuilder = "NIXPACKS"\n[deploy]\nstartCommand = "npm start"\nreplicas = 2\nhealthcheck = true',
+    );
     expect(validToml.error).toBeUndefined();
-    expect((validToml.data?.deploy as any).startCommand).toBe('npm start');
-    expect((validToml.data?.deploy as any).replicas).toBe(2);
-    expect((validToml.data?.deploy as any).healthcheck).toBe(true);
+    const deploy = validToml.data?.deploy as Record<string, unknown> | undefined;
+    expect(deploy?.startCommand).toBe('npm start');
+    expect(deploy?.replicas).toBe(2);
+    expect(deploy?.healthcheck).toBe(true);
 
     const brokenToml = parseSimpleToml('[unclosed_section\nkey = "val"');
     expect(brokenToml.error).toBeDefined();
@@ -123,12 +133,32 @@ describe('Discovery Subsystem & Security Safeguards', () => {
     const manifest = discoverProject(tmpDir);
     expect(manifest.configFacts.pnpmWorkspacePackages).toEqual(['apps/*', 'packages/*']);
 
-    expect(resolveTargetPlatform({ explicitPlatform: 'VERCEL', inferredPlatforms: [], primaryFramework: 'unknown' })).toBe('vercel');
-    expect(resolveTargetPlatform({ inferredPlatforms: ['railway'], primaryFramework: 'unknown' })).toBe('railway');
-    expect(resolveTargetPlatform({ inferredPlatforms: [], primaryFramework: 'nextjs' })).toBe('vercel');
-    expect(resolveTargetPlatform({ inferredPlatforms: [], primaryFramework: 'express' })).toBe('railway');
-    expect(resolveTargetPlatform({ inferredPlatforms: [], primaryFramework: 'unknown' })).toBeNull();
-    expect(() => resolveTargetPlatform({ explicitPlatform: 'heroku', inferredPlatforms: [], primaryFramework: 'unknown' })).toThrow('Unsupported deployment platform');
+    expect(
+      resolveTargetPlatform({
+        explicitPlatform: 'VERCEL',
+        inferredPlatforms: [],
+        primaryFramework: 'unknown',
+      }),
+    ).toBe('vercel');
+    expect(
+      resolveTargetPlatform({ inferredPlatforms: ['railway'], primaryFramework: 'unknown' }),
+    ).toBe('railway');
+    expect(resolveTargetPlatform({ inferredPlatforms: [], primaryFramework: 'nextjs' })).toBe(
+      'vercel',
+    );
+    expect(resolveTargetPlatform({ inferredPlatforms: [], primaryFramework: 'express' })).toBe(
+      'railway',
+    );
+    expect(
+      resolveTargetPlatform({ inferredPlatforms: [], primaryFramework: 'unknown' }),
+    ).toBeNull();
+    expect(() =>
+      resolveTargetPlatform({
+        explicitPlatform: 'heroku',
+        inferredPlatforms: [],
+        primaryFramework: 'unknown',
+      }),
+    ).toThrow('Unsupported deployment platform');
   });
 
   it('validates JSON files and records parse errors without crashing on malformed source or JSON', () => {

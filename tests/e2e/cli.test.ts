@@ -10,7 +10,9 @@ import { runControlledStartupCheck } from '../../src/verification/startup-check'
 describe('E2E CLI Dispatcher, Arguments, Exit Codes, and Bounded Subprocess Execution', () => {
   const examplesRoot = path.resolve(__dirname, '../../examples');
 
-  async function invokeCli(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+  async function invokeCli(
+    args: string[],
+  ): Promise<{ code: number; stdout: string; stderr: string }> {
     const out: string[] = [];
     const err: string[] = [];
     const code = await runCli(args, {
@@ -114,7 +116,7 @@ describe('E2E CLI Dispatcher, Arguments, Exit Codes, and Bounded Subprocess Exec
         JSON.stringify({
           name: 'verify-exec-app',
           scripts: {
-            build: "node -e \"console.log(123)\"",
+            build: 'node -e "console.log(123)"',
             start: 'node server.js',
           },
           dependencies: { express: '^4.19.2' },

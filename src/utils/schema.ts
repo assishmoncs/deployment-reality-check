@@ -9,7 +9,10 @@ export interface ValidationResult<T> {
   issues: ValidationIssue[];
 }
 
-export function validateJsonSafe(rawContent: string, fileLabel: string): ValidationResult<Record<string, unknown>> {
+export function validateJsonSafe(
+  rawContent: string,
+  fileLabel: string,
+): ValidationResult<Record<string, unknown>> {
   try {
     const parsed: unknown = JSON.parse(rawContent);
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {

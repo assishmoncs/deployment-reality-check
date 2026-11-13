@@ -9,11 +9,14 @@ const rootDir = path.resolve(__dirname, '..');
 const isCheck = process.argv.includes('--check');
 const isWrite = process.argv.includes('--write');
 
-const localPrettier = path.join(rootDir, 'node_modules', '.bin', process.platform === 'win32' ? 'prettier.cmd' : 'prettier');
+// Run Prettier's JS entrypoint directly; .cmd wrappers cannot be spawned
+// reliably by Node on Windows without a shell.
+const localPrettier = path.join(rootDir, 'node_modules', 'prettier', 'bin', 'prettier.cjs');
 if (fs.existsSync(localPrettier)) {
   const args = [isWrite ? '--write' : '--check', 'src/**/*.ts', 'tests/**/*.ts', 'README.md', 'docs/**/*.md'];
-  const res = spawnSync(localPrettier, args, { cwd: rootDir, stdio: 'inherit' });
-  process.exit(res.status ?? 0);
+  const res = spawnSync(process.execPath, [localPrettier, ...args], { cwd: rootDir, stdio: 'inherit' });
+  if (res.error) throw res.error;
+  process.exit(res.status ?? 1);
 }
 
 function collectFiles(dir, exts, out = []) {
