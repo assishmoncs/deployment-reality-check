@@ -153,6 +153,17 @@ describe('All 12 Deployment Rules — Positive, Negative, and Edge-Case Suite', 
     expect(findings).toHaveLength(2);
   });
 
+  it('DRC006/DRC007: does not flag Next.js App Router Server Components (without use client) reading server env vars', () => {
+    writeProject({
+      'package.json': JSON.stringify({ name: 'next-rsc', dependencies: { next: '14.2.0', react: '18.3.0' }, scripts: { build: 'next build', start: 'next start' } }),
+      '.env.example': 'DATABASE_URL=postgresql://user:pass@host:5432/db\nINTERNAL_API_URL=https://internal.example.com\n',
+      'src/app/page.tsx': `export default async function Page() { const db = process.env.DATABASE_URL; const api = process.env.INTERNAL_API_URL; return <div>{Boolean(db && api)}</div>; }`,
+    });
+    const manifest = discoverProject(tmpDir);
+    const findings = engine.evaluateProject(manifest, 'vercel');
+    expect(findings.filter((f) => f.ruleId === 'DRC006' || f.ruleId === 'DRC007')).toHaveLength(0);
+  });
+
   it('DRC007: flags unprefixed client API URLs in Next.js and Vite (positive) and passes properly prefixed vars (negative)', () => {
     writeProject({
       'package.json': JSON.stringify({ name: 'web', dependencies: { react: '18.2.0', vite: '5.0.0' }, scripts: { build: 'vite build' } }),

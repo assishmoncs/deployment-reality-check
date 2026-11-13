@@ -4,6 +4,9 @@ import { PlatformId } from '../core/finding';
 import { readTextFileSafe } from '../utils/fs-safe';
 import { validateJsonSafe } from '../utils/schema';
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const YAML = require('yaml');
+
 export function parseDotenvKeys(content: string): string[] {
   const keys: string[] = [];
   const lines = content.split(/\r?\n/);
@@ -178,6 +181,23 @@ export function discoverDeploymentConfigs(
 
     if (base === 'Dockerfile') {
       configFacts.dockerfilePath = file;
+    }
+
+    if (file === 'pnpm-workspace.yaml') {
+      const readRes = readTextFileSafe(rootDir, file);
+      if (readRes.content) {
+        try {
+          const parsedYaml = YAML.parse(readRes.content) as { packages?: unknown } | null;
+          if (parsedYaml && Array.isArray(parsedYaml.packages)) {
+            configFacts.pnpmWorkspacePackages = parsedYaml.packages.filter(
+              (p): p is string => typeof p === 'string',
+            );
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          parseErrors.push({ file, error: `Invalid YAML syntax: ${msg}` });
+        }
+      }
     }
 
     if (

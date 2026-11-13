@@ -1,6 +1,6 @@
 import { executeExplainCommand } from './commands/explain';
 import { executeFixCommand } from './commands/fix';
-import { executeScanCommand } from './commands/scan';
+import { executeScanCommand, ScanCommandOptions } from './commands/scan';
 import { executeVerifyCommand } from './commands/verify';
 
 export const DRC_VERSION = '1.0.0';
@@ -206,8 +206,12 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
     const res = await executeScanCommand({
       targetDir: positional[0] ?? '.',
       platform: platformFlag,
-      format: (typeof flags.format === 'string' ? flags.format : 'terminal') as any,
-      failOn: (typeof flags['fail-on'] === 'string' ? flags['fail-on'] : 'critical') as any,
+      format: (typeof flags.format === 'string'
+        ? flags.format
+        : 'terminal') as ScanCommandOptions['format'],
+      failOn: (typeof flags['fail-on'] === 'string'
+        ? flags['fail-on']
+        : 'critical') as ScanCommandOptions['failOn'],
       noColor,
       nonInteractive,
       version: DRC_VERSION,

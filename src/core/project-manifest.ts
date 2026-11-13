@@ -117,6 +117,7 @@ export interface DeploymentConfigFacts {
   nextConfigContent?: string;
   viteConfigPath?: string;
   viteConfigContent?: string;
+  pnpmWorkspacePackages?: string[];
 }
 
 export interface EnvFilesFacts {

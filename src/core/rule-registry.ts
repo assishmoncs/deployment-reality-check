@@ -5,7 +5,7 @@ import { drc002HardcodedLocalhostRule } from '../rules/networking/drc002-hardcod
 import { drc003SqlitePersistenceRule } from '../rules/persistence/drc003-sqlite-persistence';
 import { drc004BuildStartScriptsRule } from '../rules/runtime/drc004-build-start-scripts';
 import { drc005PortHostBindingRule } from '../rules/networking/drc005-port-host-binding';
-import { drc006ExposedFrontendSecretsRule } from '../rules/security/drc006-exposed-Frontend-secrets';
+import { drc006ExposedFrontendSecretsRule } from '../rules/security/drc006-exposed-frontend-secrets';
 import { drc007FrontendApiUrlRule } from '../rules/environment/drc007-frontend-api-url';
 import { drc008CorsMismatchRule } from '../rules/networking/drc008-cors-mismatch';
 import { drc009LocalFileUploadsRule } from '../rules/persistence/drc009-local-file-uploads';

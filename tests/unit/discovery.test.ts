@@ -6,6 +6,7 @@ import { discoverProject } from '../../src/discovery';
 import { parseDotenvKeys, parseSimpleToml } from '../../src/discovery/config-reader';
 import { walkProjectFiles } from '../../src/discovery/file-walker';
 import { assertSafeProjectPath, isLikelyBinaryBuffer, normalizePosixPath, readTextFileSafe } from '../../src/utils/fs-safe';
+import { resolveTargetPlatform } from '../../src/utils/prompts';
 import { validateJsonSafe } from '../../src/utils/schema';
 
 describe('Discovery Subsystem & Security Safeguards', () => {
@@ -112,6 +113,22 @@ describe('Discovery Subsystem & Security Safeguards', () => {
     expect(manifest.primaryFramework).toBe('nextjs');
     expect(manifest.primaryPackageManager).toBe('pnpm');
     expect(manifest.inferredPlatforms).toContain('vercel');
+  });
+
+  it('parses pnpm-workspace.yaml and resolves target platforms cleanly', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'pnpm-workspace.yaml'),
+      'packages:\n  - "apps/*"\n  - "packages/*"\n',
+    );
+    const manifest = discoverProject(tmpDir);
+    expect(manifest.configFacts.pnpmWorkspacePackages).toEqual(['apps/*', 'packages/*']);
+
+    expect(resolveTargetPlatform({ explicitPlatform: 'VERCEL', inferredPlatforms: [], primaryFramework: 'unknown' })).toBe('vercel');
+    expect(resolveTargetPlatform({ inferredPlatforms: ['railway'], primaryFramework: 'unknown' })).toBe('railway');
+    expect(resolveTargetPlatform({ inferredPlatforms: [], primaryFramework: 'nextjs' })).toBe('vercel');
+    expect(resolveTargetPlatform({ inferredPlatforms: [], primaryFramework: 'express' })).toBe('railway');
+    expect(resolveTargetPlatform({ inferredPlatforms: [], primaryFramework: 'unknown' })).toBeNull();
+    expect(() => resolveTargetPlatform({ explicitPlatform: 'heroku', inferredPlatforms: [], primaryFramework: 'unknown' })).toThrow('Unsupported deployment platform');
   });
 
   it('validates JSON files and records parse errors without crashing on malformed source or JSON', () => {

@@ -1,5 +1,6 @@
 import * as path from 'path';
 import {
+  CorsUsageFact,
   DatabaseMigrationFact,
   EnvVarUsageFact,
   FileUploadFact,
@@ -8,7 +9,6 @@ import {
   LongRunningProcessFact,
   ServicePackageInfo,
   SqliteUsageFact,
-  CorsUsageFact,
 } from '../core/project-manifest';
 import { readTextFileSafe } from '../utils/fs-safe';
 
@@ -18,6 +18,49 @@ const babelParser = require('@babel/parser');
 const babelTraverse = require('@babel/traverse').default || require('@babel/traverse');
 
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
+
+interface AstPosition {
+  line: number;
+  column: number;
+}
+
+interface AstNode {
+  type: string;
+  loc?: { start: AstPosition } | null;
+  start?: number | null;
+  end?: number | null;
+  name?: string;
+  value?: unknown;
+  computed?: boolean;
+  operator?: string;
+  object?: AstNode;
+  property?: AstNode;
+  left?: AstNode;
+  right?: AstNode;
+  callee?: AstNode;
+  arguments?: AstNode[];
+  properties?: AstNode[];
+  key?: AstNode;
+  init?: AstNode | null;
+  quasis?: Array<{ value: { raw: string } }>;
+}
+
+interface AstBinding {
+  path: {
+    node: AstNode;
+  };
+}
+
+interface AstNodePath {
+  node: AstNode;
+  parent: AstNode;
+  scope: {
+    getBinding(name: string): AstBinding | undefined;
+  };
+  isCallExpression(): boolean;
+  isIfStatement(): boolean;
+  findParent(predicate: (ancestor: AstNodePath) => boolean): AstNodePath | null;
+}
 
 export function isTestFilePath(filePath: string): boolean {
   const normalized = filePath.toLowerCase();
@@ -47,6 +90,11 @@ export function isClientSideFile(
     return true;
   }
 
+  // Explicit 'use server' directive is always server-side
+  if (/^\s*['"]use server['"]/.test(code)) {
+    return false;
+  }
+
   // Server API route paths are server-side
   if (
     normalized.includes('/pages/api/') ||
@@ -61,12 +109,23 @@ export function isClientSideFile(
     return false;
   }
 
-  // JSX/TSX files outside server/api directories are client components or Next pages/components
+  // Next.js App Router files without 'use client' are Server Components by default
+  const isNextAppRouterFile =
+    normalized.startsWith('app/') ||
+    normalized.startsWith('src/app/') ||
+    normalized.includes('/app/') ||
+    normalized.includes('/src/app/');
+  const belongsToNextService = services.some((s) => s.framework === 'nextjs');
+  if (belongsToNextService && isNextAppRouterFile) {
+    return false;
+  }
+
+  // JSX/TSX files outside server/api and Next.js App Router directories are client components
   if (normalized.endsWith('.tsx') || normalized.endsWith('.jsx')) {
     return true;
   }
 
-  // Files inside client/frontend service or src/components, src/pages, src/hooks
+  // Files inside client/frontend service or src/components, src/hooks
   if (
     normalized.startsWith('client/') ||
     normalized.startsWith('frontend/') ||
@@ -117,7 +176,6 @@ export function analyzeSourceFiles(
   const longRunningProcesses: LongRunningProcessFact[] = [];
   const parseErrors: Array<{ file: string; error: string }> = [];
 
-  // Aggregate database facts from dependencies & scripts first
   let hasPrisma = false;
   let hasDrizzle = false;
   let hasTypeOrm = false;
@@ -140,14 +198,11 @@ export function analyzeSourceFiles(
     if (deps['@supabase/supabase-js']) hasSupabase = true;
     if (deps.pg || deps.postgres) hasPostgres = true;
 
-    if (
-      deps.sqlite3 ||
-      deps['better-sqlite3'] ||
-      deps['sql.js']
-    ) {
+    if (deps.sqlite3 || deps['better-sqlite3'] || deps['sql.js']) {
       const pkgPath = svc.relativePath === '.' ? 'package.json' : `${svc.relativePath}/package.json`;
       sqliteUsages.push({
-        driverOrPattern: Object.keys(deps).find((k) => k.includes('sqlite') || k === 'sql.js') ?? 'sqlite3',
+        driverOrPattern:
+          Object.keys(deps).find((k) => k.includes('sqlite') || k === 'sql.js') ?? 'sqlite3',
         file: pkgPath,
         line: 1,
         column: 1,
@@ -165,11 +220,17 @@ export function analyzeSourceFiles(
         hasMigrateOrGenerateScript = true;
       }
       if (
-        (scriptName === 'start' || scriptName === 'build' || scriptName === 'postinstall' || scriptName === 'prestart') &&
-        /prisma\s+migrate\s+reset|--force-reset|DROP\s+TABLE|db\s+push\s+--force-reset/i.test(scriptCmd)
+        (scriptName === 'start' ||
+          scriptName === 'build' ||
+          scriptName === 'postinstall' ||
+          scriptName === 'prestart') &&
+        /prisma\s+migrate\s+reset|--force-reset|DROP\s+TABLE|db\s+push\s+--force-reset/i.test(
+          scriptCmd,
+        )
       ) {
         hasDestructiveDropOrResetInStart = true;
-        destructiveScriptFile = svc.relativePath === '.' ? 'package.json' : `${svc.relativePath}/package.json`;
+        destructiveScriptFile =
+          svc.relativePath === '.' ? 'package.json' : `${svc.relativePath}/package.json`;
         destructiveScriptEvidence = `"${scriptName}": "${scriptCmd}"`;
       }
     }
@@ -234,13 +295,14 @@ export function analyzeSourceFiles(
       ExportDefaultDeclaration() {
         fileExportsServerlessHandler = true;
       },
-      AssignmentExpression(p: any) {
+      AssignmentExpression(p: AstNodePath) {
         const left = p.node.left;
         if (
+          left &&
           left.type === 'MemberExpression' &&
-          left.object.type === 'Identifier' &&
+          left.object?.type === 'Identifier' &&
           left.object.name === 'module' &&
-          left.property.type === 'Identifier' &&
+          left.property?.type === 'Identifier' &&
           left.property.name === 'exports'
         ) {
           fileExportsServerlessHandler = true;
@@ -249,19 +311,18 @@ export function analyzeSourceFiles(
     });
 
     babelTraverse(ast, {
-      // 1. Detect process.env.XYZ and import.meta.env.XYZ
-      MemberExpression(p: any) {
+      MemberExpression(p: AstNodePath) {
         const node = p.node;
         const loc = node.loc?.start ?? { line: 1, column: 0 };
 
-        // process.env.VAR_NAME
         if (
-          node.object.type === 'MemberExpression' &&
-          node.object.object.type === 'Identifier' &&
+          node.object?.type === 'MemberExpression' &&
+          node.object.object?.type === 'Identifier' &&
           node.object.object.name === 'process' &&
-          node.object.property.type === 'Identifier' &&
+          node.object.property?.type === 'Identifier' &&
           node.object.property.name === 'env' &&
-          node.property.type === 'Identifier' &&
+          node.property?.type === 'Identifier' &&
+          node.property.name &&
           !node.computed
         ) {
           const varName = node.property.name;
@@ -283,13 +344,13 @@ export function analyzeSourceFiles(
           });
         }
 
-        // import.meta.env.VAR_NAME
         if (
-          node.object.type === 'MemberExpression' &&
-          node.object.object.type === 'MetaProperty' &&
-          node.object.property.type === 'Identifier' &&
+          node.object?.type === 'MemberExpression' &&
+          node.object.object?.type === 'MetaProperty' &&
+          node.object.property?.type === 'Identifier' &&
           node.object.property.name === 'env' &&
-          node.property.type === 'Identifier' &&
+          node.property?.type === 'Identifier' &&
+          node.property.name &&
           !node.computed
         ) {
           const varName = node.property.name;
@@ -312,26 +373,33 @@ export function analyzeSourceFiles(
         }
       },
 
-      // 2. Detect StringLiteral / TemplateLiteral with localhost or 127.0.0.1 or SQLite paths or Destructive SQL
-      StringLiteral(p: any) {
-        const val: string = p.node.value;
+      StringLiteral(p: AstNodePath) {
+        const val = typeof p.node.value === 'string' ? p.node.value : '';
+        if (!val) return;
         const loc = p.node.loc?.start ?? { line: 1, column: 0 };
 
         if (/https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(val)) {
-          // Check if inside console.log or fallback expression (process.env.X || 'http://localhost...')
+          const isInsideCorsCall = Boolean(
+            p.findParent(
+              (anc: AstNodePath) =>
+                anc.isCallExpression() &&
+                anc.node.callee?.type === 'Identifier' &&
+                anc.node.callee.name === 'cors',
+            ),
+          );
+          if (isInsideCorsCall) return;
+
           const isFallbackRight =
             p.parent.type === 'LogicalExpression' &&
             (p.parent.operator === '||' || p.parent.operator === '??') &&
             p.parent.right === p.node;
 
-          // Check if inside cors({ origin: ... }) -> handled separately in CallExpression, but still record
-          const isInsideCorsCall = Boolean(p.findParent((anc: any) => anc.isCallExpression() && anc.node.callee.type === "Identifier" && anc.node.callee.name === "cors")); if (isInsideCorsCall) return;
           const isConsoleCall = Boolean(
             p.findParent(
-              (anc: any) =>
+              (anc: AstNodePath) =>
                 anc.isCallExpression() &&
-                anc.node.callee.type === 'MemberExpression' &&
-                anc.node.callee.object.type === 'Identifier' &&
+                anc.node.callee?.type === 'MemberExpression' &&
+                anc.node.callee.object?.type === 'Identifier' &&
                 anc.node.callee.object.name === 'console',
             ),
           );
@@ -371,16 +439,17 @@ export function analyzeSourceFiles(
         }
       },
 
-      TemplateLiteral(p: any) {
-        const rawQuasis = p.node.quasis.map((q: any) => q.value.raw).join('${...}');
+      TemplateLiteral(p: AstNodePath) {
+        const quasis = p.node.quasis ?? [];
+        const rawQuasis = quasis.map((q) => q.value.raw).join('${...}');
         const loc = p.node.loc?.start ?? { line: 1, column: 0 };
         if (/https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(rawQuasis)) {
           const isConsoleCall = Boolean(
             p.findParent(
-              (anc: any) =>
+              (anc: AstNodePath) =>
                 anc.isCallExpression() &&
-                anc.node.callee.type === 'MemberExpression' &&
-                anc.node.callee.object.type === 'Identifier' &&
+                anc.node.callee?.type === 'MemberExpression' &&
+                anc.node.callee.object?.type === 'Identifier' &&
                 anc.node.callee.object.name === 'console',
             ),
           );
@@ -402,52 +471,57 @@ export function analyzeSourceFiles(
         }
       },
 
-      // 3. Detect CallExpressions: .listen(), cors(), multer(), fs.writeFile, cron.schedule, setInterval, new WebSocketServer
-      CallExpression(p: any) {
+      CallExpression(p: AstNodePath) {
         const node = p.node;
         const loc = node.loc?.start ?? { line: 1, column: 0 };
+        const callArgs = node.arguments ?? [];
 
-        // A. app.listen(...) or server.listen(...)
         if (
-          node.callee.type === 'MemberExpression' &&
-          node.callee.property.type === 'Identifier' &&
+          node.callee?.type === 'MemberExpression' &&
+          node.callee.property?.type === 'Identifier' &&
           node.callee.property.name === 'listen' &&
-          node.arguments.length >= 1
+          callArgs.length >= 1
         ) {
-          const firstArg = node.arguments[0];
-          const secondArg = node.arguments[1];
+          const firstArg = callArgs[0]!;
+          const secondArg = callArgs[1];
 
           let usesProcessEnvPort = false;
           let hardcodedPort: number | undefined;
           let hostAddress: string | undefined;
 
-          if (firstArg.type === 'NumericLiteral') {
+          if (firstArg.type === 'NumericLiteral' && typeof firstArg.value === 'number') {
             hardcodedPort = firstArg.value;
           } else {
             const argSource = code.slice(firstArg.start ?? 0, firstArg.end ?? 0);
             if (/process\.env\.PORT/.test(argSource)) {
               usesProcessEnvPort = true;
-            } else if (firstArg.type === 'Identifier') {
-              // Trace variable binding in scope
+            } else if (firstArg.type === 'Identifier' && firstArg.name) {
               const binding = p.scope.getBinding(firstArg.name);
               if (binding && binding.path.node.init) {
                 const initNode = binding.path.node.init;
                 const initText = code.slice(initNode.start ?? 0, initNode.end ?? 0);
                 if (/process\.env\.PORT/.test(initText)) {
                   usesProcessEnvPort = true;
-                } else if (initNode.type === 'NumericLiteral') {
+                } else if (
+                  initNode.type === 'NumericLiteral' &&
+                  typeof initNode.value === 'number'
+                ) {
                   hardcodedPort = initNode.value;
                 }
               }
             }
           }
 
-          if (secondArg && secondArg.type === 'StringLiteral') {
+          if (
+            secondArg &&
+            secondArg.type === 'StringLiteral' &&
+            typeof secondArg.value === 'string'
+          ) {
             hostAddress = secondArg.value;
           }
 
           const isConditionalServerlessGuard = Boolean(
-            p.findParent((anc: any) => anc.isIfStatement()),
+            p.findParent((anc: AstNodePath) => anc.isIfStatement()),
           );
 
           listenCalls.push({
@@ -462,32 +536,34 @@ export function analyzeSourceFiles(
           });
         }
 
-        // B. cors({ origin: ... })
         if (
-          node.callee.type === 'Identifier' &&
+          node.callee?.type === 'Identifier' &&
           node.callee.name === 'cors' &&
-          node.arguments.length >= 1 &&
-          node.arguments[0].type === 'ObjectExpression'
+          callArgs.length >= 1 &&
+          callArgs[0]?.type === 'ObjectExpression'
         ) {
-          const obj = node.arguments[0];
+          const obj = callArgs[0]!;
           let originValue = '';
           let credentialsTrue = false;
 
-          for (const prop of obj.properties) {
-            if (prop.type === 'ObjectProperty' && prop.key.type === 'Identifier') {
-              if (prop.key.name === 'origin') {
-                originValue = code.slice(prop.value.start ?? 0, prop.value.end ?? 0);
+          for (const prop of obj.properties ?? []) {
+            if (prop.type === 'ObjectProperty' && prop.key?.type === 'Identifier') {
+              if (prop.key.name === 'origin' && prop.right === undefined && prop.value) {
+                const valNode = prop.value as AstNode;
+                originValue = code.slice(valNode.start ?? 0, valNode.end ?? 0);
               }
-              if (prop.key.name === 'credentials' && prop.value.type === 'BooleanLiteral') {
-                credentialsTrue = prop.value.value === true;
+              if (prop.key.name === 'credentials' && prop.value) {
+                const valNode = prop.value as AstNode;
+                if (valNode.type === 'BooleanLiteral') {
+                  credentialsTrue = valNode.value === true;
+                }
               }
             }
           }
 
           if (originValue) {
             const isHardcodedLocalhost =
-              /localhost|127\.0\.0\.1/i.test(originValue) &&
-              !/process\.env/.test(originValue);
+              /localhost|127\.0\.0\.1/i.test(originValue) && !/process\.env/.test(originValue);
             const usesWildcardWithCredentials =
               credentialsTrue && (originValue === "'*'" || originValue === '"*"');
 
@@ -502,29 +578,30 @@ export function analyzeSourceFiles(
           }
         }
 
-        // C. Local file uploads: multer({ dest: '...' }) or multer.diskStorage({ destination: ... })
         if (
-          (node.callee.type === 'Identifier' && node.callee.name === 'multer') ||
-          (node.callee.type === 'MemberExpression' &&
-            node.callee.object.type === 'Identifier' &&
+          (node.callee?.type === 'Identifier' && node.callee.name === 'multer') ||
+          (node.callee?.type === 'MemberExpression' &&
+            node.callee.object?.type === 'Identifier' &&
             node.callee.object.name === 'multer' &&
-            node.callee.property.type === 'Identifier' &&
+            node.callee.property?.type === 'Identifier' &&
             node.callee.property.name === 'diskStorage')
         ) {
-          const arg0 = node.arguments[0];
+          const arg0 = callArgs[0];
           let destText = 'local-disk';
           if (arg0 && arg0.type === 'ObjectExpression') {
-            for (const prop of arg0.properties) {
+            for (const prop of arg0.properties ?? []) {
               if (
                 prop.type === 'ObjectProperty' &&
-                prop.key.type === 'Identifier' &&
-                (prop.key.name === 'dest' || prop.key.name === 'destination')
+                prop.key?.type === 'Identifier' &&
+                (prop.key.name === 'dest' || prop.key.name === 'destination') &&
+                prop.value
               ) {
-                destText = code.slice(prop.value.start ?? 0, prop.value.end ?? 0);
+                const valNode = prop.value as AstNode;
+                destText = code.slice(valNode.start ?? 0, valNode.end ?? 0);
               }
             }
           }
-          if (destText !== 'local-disk' || (node.callee.type === 'MemberExpression')) {
+          if (destText !== 'local-disk' || node.callee?.type === 'MemberExpression') {
             const isTempDir = /\/tmp|os\.tmpdir/.test(destText);
             fileUploads.push({
               file,
@@ -538,14 +615,15 @@ export function analyzeSourceFiles(
           }
         }
 
-        // D. fs.writeFile / fs.writeFileSync / fs.createWriteStream to uploads or public directory
         if (
-          node.callee.type === 'MemberExpression' &&
-          node.callee.property.type === 'Identifier' &&
+          node.callee?.type === 'MemberExpression' &&
+          node.callee.property?.type === 'Identifier' &&
+          node.callee.property.name &&
           ['writeFile', 'writeFileSync', 'createWriteStream'].includes(node.callee.property.name) &&
-          node.arguments.length >= 1
+          callArgs.length >= 1
         ) {
-          const targetArg = code.slice(node.arguments[0].start ?? 0, node.arguments[0].end ?? 0);
+          const firstArg = callArgs[0]!;
+          const targetArg = code.slice(firstArg.start ?? 0, firstArg.end ?? 0);
           if (/uploads|avatars|media|public\/uploads|storage/i.test(targetArg)) {
             fileUploads.push({
               file,
@@ -559,12 +637,11 @@ export function analyzeSourceFiles(
           }
         }
 
-        // E. Long-running processes: cron.schedule, setInterval in backend/API routes
         if (
-          node.callee.type === 'MemberExpression' &&
-          node.callee.property.type === 'Identifier' &&
+          node.callee?.type === 'MemberExpression' &&
+          node.callee.property?.type === 'Identifier' &&
           node.callee.property.name === 'schedule' &&
-          node.callee.object.type === 'Identifier' &&
+          node.callee.object?.type === 'Identifier' &&
           (node.callee.object.name === 'cron' || node.callee.object.name === 'nodeCron')
         ) {
           longRunningProcesses.push({
@@ -572,13 +649,16 @@ export function analyzeSourceFiles(
             line: loc.line,
             column: loc.column + 1,
             kind: 'cron',
-            evidence: code.slice(node.start ?? 0, Math.min((node.end ?? 0), (node.start ?? 0) + 80)),
+            evidence: code.slice(
+              node.start ?? 0,
+              Math.min(node.end ?? 0, (node.start ?? 0) + 80),
+            ),
             isTestFile: isTest,
           });
         }
 
         if (
-          node.callee.type === 'Identifier' &&
+          node.callee?.type === 'Identifier' &&
           node.callee.name === 'setInterval' &&
           !isClient
         ) {
@@ -593,12 +673,13 @@ export function analyzeSourceFiles(
         }
       },
 
-      NewExpression(p: any) {
+      NewExpression(p: AstNodePath) {
         const node = p.node;
         const loc = node.loc?.start ?? { line: 1, column: 0 };
-        if (node.callee.type === 'Identifier') {
+        const newArgs = node.arguments ?? [];
+        if (node.callee?.type === 'Identifier' && node.callee.name) {
           const name = node.callee.name;
-          if (name === 'WebSocketServer' || name === 'Server' && code.includes('socket.io')) {
+          if (name === 'WebSocketServer' || (name === 'Server' && code.includes('socket.io'))) {
             longRunningProcesses.push({
               file,
               line: loc.line,
@@ -619,8 +700,13 @@ export function analyzeSourceFiles(
             });
           }
           if (name === 'Database') {
-            const firstArg = node.arguments[0];
-            const dbArg = firstArg && firstArg.type === 'StringLiteral' ? firstArg.value : 'local.db';
+            const firstArg = newArgs[0];
+            const dbArg =
+              firstArg &&
+              firstArg.type === 'StringLiteral' &&
+              typeof firstArg.value === 'string'
+                ? firstArg.value
+                : 'local.db';
             sqliteUsages.push({
               driverOrPattern: 'new Database(...)',
               file,

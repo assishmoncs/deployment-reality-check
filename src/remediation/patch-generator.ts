@@ -9,6 +9,24 @@ import { renderEnvExampleTemplate } from './templates/config-templates';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Diff = require('diff');
 
+function replaceOnTargetLine(
+  content: string,
+  targetLine: number | undefined,
+  matcher: RegExp,
+  replacer: string,
+): string {
+  if (!targetLine || targetLine < 1) {
+    return content.replace(matcher, replacer);
+  }
+  const lines = content.split('\n');
+  const idx = targetLine - 1;
+  if (idx >= 0 && idx < lines.length && matcher.test(lines[idx]!)) {
+    lines[idx] = lines[idx]!.replace(matcher, replacer);
+    return lines.join('\n');
+  }
+  return content.replace(matcher, replacer);
+}
+
 function createUnifiedDiff(filePath: string, oldText: string, newText: string): string {
   return Diff.createTwoFilesPatch(`a/${filePath}`, `b/${filePath}`, oldText, newText, '', '', {
     context: 3,
@@ -205,7 +223,9 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
         const pattern = new RegExp(`(['"\`])${escapedUrl}\\1`);
         if (pattern.test(state.current) && !state.current.includes(`${envExpr} || '${usage.urlOrHost}'`)) {
           const prevContent = state.current;
-          const updated = state.current.replace(
+          const updated = replaceOnTargetLine(
+            state.current,
+            finding.line,
             pattern,
             `(${envExpr} || '${usage.urlOrHost}')`,
           );
