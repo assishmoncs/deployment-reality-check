@@ -9,10 +9,18 @@ const rootDir = path.resolve(__dirname, '..');
 const localTsc = path.join(rootDir, 'node_modules', '.bin', process.platform === 'win32' ? 'tsc.cmd' : 'tsc');
 
 if (fs.existsSync(localTsc)) {
-  const res = spawnSync(localTsc, ['--noEmit', '-p', path.join(rootDir, 'tsconfig.json')], {
-    cwd: rootDir,
-    stdio: 'inherit',
-  });
+  const isWindows = process.platform === 'win32';
+  const res = spawnSync(
+    isWindows ? process.env.ComSpec || 'cmd.exe' : localTsc,
+    isWindows
+      ? ['/d', '/s', '/c', '"', localTsc, '--noEmit', '-p', path.join(rootDir, 'tsconfig.json'), '"']
+      : ['--noEmit', '-p', path.join(rootDir, 'tsconfig.json')],
+    {
+      cwd: rootDir,
+      stdio: 'inherit',
+      windowsVerbatimArguments: isWindows,
+    },
+  );
   process.exit(res.status ?? 1);
 }
 
