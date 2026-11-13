@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import * as http from 'http';
 import { PackageManagerType } from '../core/project-manifest';
 import { redactSecrets } from '../utils/redactor';
+import { terminateProcessTree } from '../utils/process-tree';
 
 export interface StartupCheckOptions {
   rootDir: string;
@@ -76,33 +77,10 @@ export async function runControlledStartupCheck(
       });
     }
 
-    const killProcessTree = () => {
-      try {
-        if (isPosix && child.pid) {
-          process.kill(-child.pid, 'SIGTERM');
-        } else {
-          child.kill('SIGTERM');
-        }
-      } catch {
-        // already exited
-      }
-      setTimeout(() => {
-        try {
-          if (isPosix && child.pid) {
-            process.kill(-child.pid, 'SIGKILL');
-          } else {
-            child.kill('SIGKILL');
-          }
-        } catch {
-          // already exited
-        }
-      }, 200);
-    };
-
-    const cleanupAndResolve = (report: StartupCheckReport) => {
+    const cleanupAndResolve = async (report: StartupCheckReport) => {
       if (settled) return;
       settled = true;
-      killProcessTree();
+      await terminateProcessTree(child);
       resolve({
         ...report,
         logs: redactSecrets(logs),
@@ -135,6 +113,16 @@ export async function runControlledStartupCheck(
         // server not listening yet
       });
     }, 250);
+
+    child.on('error', (error) => {
+      clearInterval(probeInterval);
+      clearTimeout(timer);
+      cleanupAndResolve({
+        executed: true,
+        success: false,
+        logs: `${logs}\nProcess spawn error: ${error.message}`,
+      });
+    });
 
     child.on('close', (code) => {
       clearInterval(probeInterval);

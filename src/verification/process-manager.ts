@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { redactSecrets } from '../utils/redactor';
+import { terminateProcessTree } from '../utils/process-tree';
 
 export interface BoundedProcessOptions {
   cwd: string;
@@ -56,6 +57,7 @@ export async function runBoundedProcess(
         CI: 'true',
       },
       shell: isWindowsPackageManagerScript,
+      detached: process.platform !== 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -82,26 +84,17 @@ export async function runBoundedProcess(
       });
     }
 
+    let termination: Promise<void> | undefined;
     const timer = setTimeout(() => {
       timedOut = true;
-      try {
-        child.kill('SIGTERM');
-        setTimeout(() => {
-          try {
-            child.kill('SIGKILL');
-          } catch {
-            // already exited
-          }
-        }, 500);
-      } catch {
-        // ignore kill error
-      }
+      termination = terminateProcessTree(child);
     }, timeoutMs);
 
-    const finish = (code: number | null) => {
+    const finish = async (code: number | null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      if (termination) await termination;
       resolve({
         exitCode: code,
         timedOut,
