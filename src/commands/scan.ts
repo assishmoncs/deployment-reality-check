@@ -41,9 +41,7 @@ export function shouldFailOnFindings(
   return findings.some((f) => SEVERITY_ORDER[f.severity] >= thresholdWeight);
 }
 
-export async function executeScanCommand(
-  options: ScanCommandOptions,
-): Promise<ScanCommandResult> {
+export async function executeScanCommand(options: ScanCommandOptions): Promise<ScanCommandResult> {
   const version = options.version ?? '1.0.0';
   const format = options.format ?? 'terminal';
   const failOn = options.failOn ?? 'critical';
@@ -110,7 +108,9 @@ export async function executeScanCommand(
   const findings = engine.evaluateProject(manifest, platform);
 
   const triggeredRules = new Set(findings.map((f) => f.ruleId));
-  const applicableRulesCount = allRules.filter((r) => r.definition.platforms.includes(platform!)).length;
+  const applicableRulesCount = allRules.filter((r) =>
+    r.definition.platforms.includes(platform!),
+  ).length;
   const passedChecksCount = Math.max(0, applicableRulesCount - triggeredRules.size);
 
   let output: string;

@@ -11,7 +11,8 @@ export const drc011LongRunningProcessesRule: DeploymentRule = {
     platforms: ['vercel', 'railway'],
     autofixEligible: false,
     fixSafety: 'manual-guided',
-    summary: 'Application starts in-process cron jobs, persistent queue workers, background timers, or stateful WebSocket servers on a serverless platform.',
+    summary:
+      'Application starts in-process cron jobs, persistent queue workers, background timers, or stateful WebSocket servers on a serverless platform.',
     whatItMeans:
       'Your code spawns background tasks (node-cron, BullMQ workers, setInterval loops) or attaches a persistent WebSocketServer (ws / socket.io) inside an environment that freezes or terminates instances after each HTTP response.',
     whyItHappens:
@@ -43,7 +44,8 @@ export const drc011LongRunningProcessesRule: DeploymentRule = {
 
     if (!adapter.capabilities.supportsLongRunningProcesses) {
       for (const proc of activeProcesses) {
-        const isCritical = proc.kind === 'websocket-server' || proc.kind === 'worker-queue' || proc.kind === 'cron';
+        const isCritical =
+          proc.kind === 'websocket-server' || proc.kind === 'worker-queue' || proc.kind === 'cron';
         findings.push({
           ruleId: 'DRC011',
           title: `Serverless-incompatible ${proc.kind} detected`,
@@ -65,7 +67,8 @@ export const drc011LongRunningProcessesRule: DeploymentRule = {
           fix: {
             eligible: false,
             safety: 'manual-guided',
-            description: 'Architectural change required: migrate background daemon/WebSocket to platform-native crons/queues or a container host.',
+            description:
+              'Architectural change required: migrate background daemon/WebSocket to platform-native crons/queues or a container host.',
           },
           docsUrl: adapter.capabilities.officialDocs.limits,
         });

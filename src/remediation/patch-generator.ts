@@ -142,9 +142,11 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
       const state = getFileState(finding.file);
       try {
         const pkgObj = JSON.parse(state.current) as Record<string, unknown>;
-        const scripts = ((pkgObj.scripts as Record<string, string> | undefined) ?? {});
+        const scripts = (pkgObj.scripts as Record<string, string> | undefined) ?? {};
         const svc = manifest.services.find(
-          (s) => (s.relativePath === '.' ? 'package.json' : `${s.relativePath}/package.json`) === finding.file,
+          (s) =>
+            (s.relativePath === '.' ? 'package.json' : `${s.relativePath}/package.json`) ===
+            finding.file,
         );
 
         if (svc?.framework === 'nextjs') {
@@ -216,12 +218,15 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
           manifest.primaryFramework === 'nextjs' && usage.isClientFile
             ? 'process.env.NEXT_PUBLIC_API_URL'
             : manifest.primaryFramework === 'react-vite' && usage.isClientFile
-            ? 'import.meta.env.VITE_API_URL'
-            : 'process.env.API_BASE_URL';
+              ? 'import.meta.env.VITE_API_URL'
+              : 'process.env.API_BASE_URL';
 
         const escapedUrl = usage.urlOrHost.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const pattern = new RegExp(`(['"\`])${escapedUrl}\\1`);
-        if (pattern.test(state.current) && !state.current.includes(`${envExpr} || '${usage.urlOrHost}'`)) {
+        if (
+          pattern.test(state.current) &&
+          !state.current.includes(`${envExpr} || '${usage.urlOrHost}'`)
+        ) {
           const prevContent = state.current;
           const updated = replaceOnTargetLine(
             state.current,
@@ -315,7 +320,10 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
         const newVar = isVite ? `VITE_${cleanBase}` : `NEXT_PUBLIC_${cleanBase}`;
         const prevContent = state.current;
         const updated = prevContent
-          .replace(`process.env.${usage.name}`, isVite ? `import.meta.env.${newVar}` : `process.env.${newVar}`)
+          .replace(
+            `process.env.${usage.name}`,
+            isVite ? `import.meta.env.${newVar}` : `process.env.${newVar}`,
+          )
           .replace(`import.meta.env.${usage.name}`, `import.meta.env.${newVar}`);
 
         if (updated !== prevContent) {
@@ -347,11 +355,15 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
         const prevContent = state.current;
         const updated = cors.usesWildcardWithCredentials
           ? prevContent.replace(
-              new RegExp(`origin\\s*:\\s*${cors.originValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+              new RegExp(
+                `origin\\s*:\\s*${cors.originValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+              ),
               `origin: process.env.CORS_ORIGIN || 'http://localhost:3000'`,
             )
           : prevContent.replace(
-              new RegExp(`origin\\s*:\\s*${cors.originValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+              new RegExp(
+                `origin\\s*:\\s*${cors.originValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+              ),
               `origin: process.env.CORS_ORIGIN || ${cors.originValue}`,
             );
 
@@ -381,7 +393,11 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
         const parsed = JSON.parse(state.current) as Record<string, unknown>;
         if (finding.file.endsWith('vercel.json') && 'builds' in parsed && 'functions' in parsed) {
           delete parsed.builds;
-        } else if (finding.file.endsWith('railway.json') && typeof parsed.deploy === 'object' && parsed.deploy !== null) {
+        } else if (
+          finding.file.endsWith('railway.json') &&
+          typeof parsed.deploy === 'object' &&
+          parsed.deploy !== null
+        ) {
           const deployObj = parsed.deploy as Record<string, unknown>;
           if (deployObj.startCommand === '') {
             deployObj.startCommand = 'npm run start';

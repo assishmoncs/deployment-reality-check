@@ -11,7 +11,8 @@ export const drc007FrontendApiUrlRule: DeploymentRule = {
     platforms: ['vercel', 'railway'],
     autofixEligible: true,
     fixSafety: 'approval-required',
-    summary: 'Frontend code accesses unprefixed environment variables that are stripped from browser bundles in Next.js or Vite.',
+    summary:
+      'Frontend code accesses unprefixed environment variables that are stripped from browser bundles in Next.js or Vite.',
     whatItMeans:
       'Your client-side frontend code reads an environment variable like process.env.API_URL or import.meta.env.API_URL without the framework-required NEXT_PUBLIC_ or VITE_ prefix, or mixes the wrong framework prefix.',
     whyItHappens:
@@ -23,8 +24,10 @@ export const drc007FrontendApiUrlRule: DeploymentRule = {
     howToResolve:
       'Rename client-facing API URL variables to start with NEXT_PUBLIC_ (for Next.js) or VITE_ (for React + Vite).',
     PlatformNotes: {
-      vercel: 'Ensure renamed NEXT_PUBLIC_* or VITE_* variables are also updated in Vercel Project Settings.',
-      railway: 'Ensure build-time frontend variables are available during the container build step.',
+      vercel:
+        'Ensure renamed NEXT_PUBLIC_* or VITE_* variables are also updated in Vercel Project Settings.',
+      railway:
+        'Ensure build-time frontend variables are available during the container build step.',
     },
     docsUrls: {
       vercel: 'https://vercel.com/docs/projects/environment-variables',

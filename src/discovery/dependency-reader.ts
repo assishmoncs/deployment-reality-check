@@ -78,7 +78,9 @@ export function discoverDependencies(
 
     const engines: Record<string, string> | undefined = rawEngines
       ? Object.fromEntries(
-          Object.entries(rawEngines).filter(([, v]) => typeof v === 'string') as Array<[string, string]>,
+          Object.entries(rawEngines).filter(([, v]) => typeof v === 'string') as Array<
+            [string, string]
+          >,
         )
       : undefined;
 

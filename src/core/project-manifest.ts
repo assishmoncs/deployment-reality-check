@@ -80,7 +80,8 @@ export interface LongRunningProcessFact {
   file: string;
   line: number;
   column: number;
-  kind: 'cron' | 'worker-queue' | 'websocket-server' | 'setInterval-daemon' | 'child-process-daemon';
+  kind:
+    'cron' | 'worker-queue' | 'websocket-server' | 'setInterval-daemon' | 'child-process-daemon';
   evidence: string;
   isTestFile: boolean;
 }

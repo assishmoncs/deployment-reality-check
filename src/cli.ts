@@ -114,7 +114,9 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
   }
 
   if (args[0] === '-v' || args[0] === '--version' || args[0] === 'version') {
-    io.stdout(`deployment-reality-check/${DRC_VERSION} ${process.platform}-${process.arch} node-${process.version}`);
+    io.stdout(
+      `deployment-reality-check/${DRC_VERSION} ${process.platform}-${process.arch} node-${process.version}`,
+    );
     return 0;
   }
 

@@ -11,7 +11,8 @@ export const drc002HardcodedLocalhostRule: DeploymentRule = {
     platforms: ['vercel', 'railway'],
     autofixEligible: true,
     fixSafety: 'approval-required',
-    summary: 'Production source code contains hardcoded localhost or 127.0.0.1 URLs without an environment variable override.',
+    summary:
+      'Production source code contains hardcoded localhost or 127.0.0.1 URLs without an environment variable override.',
     whatItMeans:
       'Your application directly connects to http://localhost or http://127.0.0.1 instead of reading the target URL from an environment variable.',
     whyItHappens:
@@ -53,8 +54,8 @@ export const drc002HardcodedLocalhostRule: DeploymentRule = {
         manifest.primaryFramework === 'nextjs' && usage.isClientFile
           ? 'process.env.NEXT_PUBLIC_API_URL'
           : manifest.primaryFramework === 'react-vite' && usage.isClientFile
-          ? 'import.meta.env.VITE_API_URL'
-          : 'process.env.API_BASE_URL';
+            ? 'import.meta.env.VITE_API_URL'
+            : 'process.env.API_BASE_URL';
 
       findings.push({
         ruleId: 'DRC002',

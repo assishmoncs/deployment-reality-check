@@ -14,7 +14,10 @@ export interface PatchApplicationResult {
   reason?: string;
 }
 
-export function validateGeneratedFileContent(targetFile: string, content: string): {
+export function validateGeneratedFileContent(
+  targetFile: string,
+  content: string,
+): {
   valid: boolean;
   error?: string;
 } {
@@ -82,7 +85,10 @@ export function applyPatchSafely(rootDir: string, patch: ProposedPatch): PatchAp
   // 3. Atomic write with rollback protection
   const parentDir = path.dirname(safeTargetPath);
   fs.mkdirSync(parentDir, { recursive: true });
-  const tempPath = path.join(parentDir, `.drc-tmp-${process.pid}-${Date.now()}-${path.basename(safeTargetPath)}`);
+  const tempPath = path.join(
+    parentDir,
+    `.drc-tmp-${process.pid}-${Date.now()}-${path.basename(safeTargetPath)}`,
+  );
 
   try {
     fs.writeFileSync(tempPath, patch.proposedContent, 'utf8');
@@ -101,7 +107,11 @@ export function applyPatchSafely(rootDir: string, patch: ProposedPatch): PatchAp
       }
     }
     // Restore original if needed
-    if (existsNow && (!fs.existsSync(safeTargetPath) || fs.readFileSync(safeTargetPath, 'utf8') !== currentDiskContent)) {
+    if (
+      existsNow &&
+      (!fs.existsSync(safeTargetPath) ||
+        fs.readFileSync(safeTargetPath, 'utf8') !== currentDiskContent)
+    ) {
       fs.writeFileSync(safeTargetPath, currentDiskContent, 'utf8');
     }
     const msg = err instanceof Error ? err.message : String(err);

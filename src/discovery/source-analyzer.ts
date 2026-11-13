@@ -199,7 +199,8 @@ export function analyzeSourceFiles(
     if (deps.pg || deps.postgres) hasPostgres = true;
 
     if (deps.sqlite3 || deps['better-sqlite3'] || deps['sql.js']) {
-      const pkgPath = svc.relativePath === '.' ? 'package.json' : `${svc.relativePath}/package.json`;
+      const pkgPath =
+        svc.relativePath === '.' ? 'package.json' : `${svc.relativePath}/package.json`;
       sqliteUsages.push({
         driverOrPattern:
           Object.keys(deps).find((k) => k.includes('sqlite') || k === 'sql.js') ?? 'sqlite3',
@@ -649,19 +650,12 @@ export function analyzeSourceFiles(
             line: loc.line,
             column: loc.column + 1,
             kind: 'cron',
-            evidence: code.slice(
-              node.start ?? 0,
-              Math.min(node.end ?? 0, (node.start ?? 0) + 80),
-            ),
+            evidence: code.slice(node.start ?? 0, Math.min(node.end ?? 0, (node.start ?? 0) + 80)),
             isTestFile: isTest,
           });
         }
 
-        if (
-          node.callee?.type === 'Identifier' &&
-          node.callee.name === 'setInterval' &&
-          !isClient
-        ) {
+        if (node.callee?.type === 'Identifier' && node.callee.name === 'setInterval' && !isClient) {
           longRunningProcesses.push({
             file,
             line: loc.line,
@@ -702,9 +696,7 @@ export function analyzeSourceFiles(
           if (name === 'Database') {
             const firstArg = newArgs[0];
             const dbArg =
-              firstArg &&
-              firstArg.type === 'StringLiteral' &&
-              typeof firstArg.value === 'string'
+              firstArg && firstArg.type === 'StringLiteral' && typeof firstArg.value === 'string'
                 ? firstArg.value
                 : 'local.db';
             sqliteUsages.push({

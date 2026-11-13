@@ -35,7 +35,8 @@ export const drc001MissingEnvConfigRule: DeploymentRule = {
     platforms: ['vercel', 'railway'],
     autofixEligible: true,
     fixSafety: 'safe-auto',
-    summary: 'Application references environment variables without documenting them in .env.example or fallback configuration.',
+    summary:
+      'Application references environment variables without documenting them in .env.example or fallback configuration.',
     whatItMeans:
       'Your source code reads environment variables (via process.env or import.meta.env) that have no default fallback and are not documented in a .env.example template.',
     whyItHappens:
@@ -67,12 +68,13 @@ export const drc001MissingEnvConfigRule: DeploymentRule = {
     if (prodUsages.length === 0) return [];
 
     // Group by variable name (keep first occurrence for file/line reporting)
-    const missingFromTemplate = new Map<string, typeof prodUsages[0]>();
+    const missingFromTemplate = new Map<string, (typeof prodUsages)[0]>();
     for (const usage of prodUsages) {
       if (usage.hasFallback) continue;
       if (manifest.envFacts.definedInEnvExample.has(usage.name)) continue;
       // Check if defined in vercel.json env
-      const vercelEnv = manifest.configFacts.vercelJsonRaw?.env as Record<string, unknown> | undefined;
+      const vercelEnv = manifest.configFacts.vercelJsonRaw?.env as
+        Record<string, unknown> | undefined;
       if (vercelEnv && usage.name in vercelEnv) continue;
 
       if (!missingFromTemplate.has(usage.name)) {

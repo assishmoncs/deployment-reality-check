@@ -11,7 +11,8 @@ export const drc005PortHostBindingRule: DeploymentRule = {
     platforms: ['vercel', 'railway'],
     autofixEligible: true,
     fixSafety: 'approval-required',
-    summary: 'Server binds to a hardcoded port or loopback host (127.0.0.1/localhost) instead of dynamic process.env.PORT and 0.0.0.0.',
+    summary:
+      'Server binds to a hardcoded port or loopback host (127.0.0.1/localhost) instead of dynamic process.env.PORT and 0.0.0.0.',
     whatItMeans:
       'Your HTTP server calls app.listen(...) with a fixed port number (like 3000 or 8080) or binds exclusively to 127.0.0.1/localhost.',
     whyItHappens:
@@ -112,7 +113,8 @@ export const drc005PortHostBindingRule: DeploymentRule = {
             fix: {
               eligible: false,
               safety: 'manual-guided',
-              description: 'Export the Express app instance and conditionally invoke app.listen() when not running on Vercel.',
+              description:
+                'Export the Express app instance and conditionally invoke app.listen() when not running on Vercel.',
             },
             docsUrl: 'https://vercel.com/docs/frameworks/backend/express',
           });

@@ -25,8 +25,7 @@ export async function runControlledStartupCheck(
   if (!options.allowExec) {
     return {
       executed: false,
-      skippedReason:
-        'Startup health check skipped (requires explicit --allow-exec permission).',
+      skippedReason: 'Startup health check skipped (requires explicit --allow-exec permission).',
       success: true,
       logs: '',
     };
@@ -38,10 +37,10 @@ export async function runControlledStartupCheck(
     options.packageManager === 'yarn'
       ? 'yarn'
       : options.packageManager === 'pnpm'
-      ? 'pnpm'
-      : options.packageManager === 'bun'
-      ? 'bun'
-      : 'npm';
+        ? 'pnpm'
+        : options.packageManager === 'bun'
+          ? 'bun'
+          : 'npm';
   const execBin = process.platform === 'win32' && bin !== 'bun' ? `${bin}.cmd` : bin;
   const isPosix = process.platform !== 'win32';
 

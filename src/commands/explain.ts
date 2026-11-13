@@ -54,7 +54,9 @@ export function executeExplainCommand(options: ExplainCommandOptions): ExplainCo
   const lines: string[] = [];
 
   lines.push(s.bold(`${def.id} — ${def.name}`));
-  lines.push(`Category: ${def.category} | Default Severity: ${def.defaultSeverity.toUpperCase()} | Confidence: ${def.defaultConfidence.toUpperCase()}`);
+  lines.push(
+    `Category: ${def.category} | Default Severity: ${def.defaultSeverity.toUpperCase()} | Confidence: ${def.defaultConfidence.toUpperCase()}`,
+  );
   lines.push(`Supported Platforms: ${def.platforms.join(', ')}`);
   lines.push('');
 
@@ -80,9 +82,7 @@ export function executeExplainCommand(options: ExplainCommandOptions): ExplainCo
 
   lines.push(s.bold('Automatic fix capability:'));
   if (def.autofixEligible) {
-    lines.push(
-      `  ${s.green('✓ Eligible for drc fix')} (Safety tier: ${def.fixSafety})`,
-    );
+    lines.push(`  ${s.green('✓ Eligible for drc fix')} (Safety tier: ${def.fixSafety})`);
   } else {
     lines.push(
       `  ${s.yellow('• Guided manual remediation only')} (Safety tier: ${def.fixSafety} — DRC will not automatically mutate this code or database state)`,
@@ -90,12 +90,16 @@ export function executeExplainCommand(options: ExplainCommandOptions): ExplainCo
   }
   lines.push('');
 
-  const platformsToShow: PlatformId[] = selectedPlatform ? [selectedPlatform] : ['vercel', 'railway'];
+  const platformsToShow: PlatformId[] = selectedPlatform
+    ? [selectedPlatform]
+    : ['vercel', 'railway'];
   lines.push(s.bold('Platform-specific notes & documentation:'));
   for (const p of platformsToShow) {
     const adapter = getPlatformAdapter(p);
     lines.push(`  • ${s.cyan(adapter.capabilities.displayName)}: ${def.PlatformNotes[p]}`);
-    lines.push(`    Docs: ${def.docsUrls[p]} (Last reviewed: ${adapter.capabilities.lastReviewedDate})`);
+    lines.push(
+      `    Docs: ${def.docsUrls[p]} (Last reviewed: ${adapter.capabilities.lastReviewedDate})`,
+    );
   }
 
   return {

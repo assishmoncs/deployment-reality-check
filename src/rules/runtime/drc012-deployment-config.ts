@@ -11,7 +11,8 @@ export const drc012DeploymentConfigRule: DeploymentRule = {
     platforms: ['vercel', 'railway'],
     autofixEligible: true,
     fixSafety: 'approval-required',
-    summary: 'Deployment configuration files (vercel.json, railway.json, railway.toml) contain syntax errors, deprecated conflicting keys, or broken command references.',
+    summary:
+      'Deployment configuration files (vercel.json, railway.json, railway.toml) contain syntax errors, deprecated conflicting keys, or broken command references.',
     whatItMeans:
       'Your project contains a platform configuration file that is malformed JSON/TOML, combines mutually exclusive properties (such as `builds` and `functions` in vercel.json), or references a non-existent build/start script.',
     whyItHappens:
@@ -133,7 +134,8 @@ export const drc012DeploymentConfigRule: DeploymentRule = {
           file: cfg.vercelJsonPath,
           line: 1,
           column: 1,
-          suggestedFix: 'Remove the legacy `"builds"` property from vercel.json and use `"functions"` exclusively.',
+          suggestedFix:
+            'Remove the legacy `"builds"` property from vercel.json and use `"functions"` exclusively.',
           fix: {
             eligible: true,
             safety: 'approval-required',
@@ -164,11 +166,13 @@ export const drc012DeploymentConfigRule: DeploymentRule = {
                 file: cfg.vercelJsonPath,
                 line: 1,
                 column: 1,
-                suggestedFix: 'Ensure cron `path` starts with `/` (e.g. `/api/cron`) and `schedule` is a valid 5-part cron expression.',
+                suggestedFix:
+                  'Ensure cron `path` starts with `/` (e.g. `/api/cron`) and `schedule` is a valid 5-part cron expression.',
                 fix: {
                   eligible: false,
                   safety: 'manual-guided',
-                  description: 'Correct the cron path and 5-part schedule expression in vercel.json.',
+                  description:
+                    'Correct the cron path and 5-part schedule expression in vercel.json.',
                 },
                 docsUrl: 'https://vercel.com/docs/cron-jobs',
               });
@@ -199,7 +203,8 @@ export const drc012DeploymentConfigRule: DeploymentRule = {
             file: cfg.railwayJsonPath,
             line: 1,
             column: 1,
-            suggestedFix: 'Provide a valid start command (e.g. `"npm run start"`) or remove the empty `startCommand` field.',
+            suggestedFix:
+              'Provide a valid start command (e.g. `"npm run start"`) or remove the empty `startCommand` field.',
             fix: {
               eligible: true,
               safety: 'approval-required',

@@ -114,7 +114,9 @@ export async function executeFixCommand(options: FixCommandOptions): Promise<Fix
     }
 
     if (!approved) {
-      lines.push(s.yellow(`Skipped patch for ${patch.targetFile} (user declined or approval required).`));
+      lines.push(
+        s.yellow(`Skipped patch for ${patch.targetFile} (user declined or approval required).`),
+      );
       lines.push('');
       continue;
     }

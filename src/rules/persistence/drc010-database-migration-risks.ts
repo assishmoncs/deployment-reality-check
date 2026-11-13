@@ -11,7 +11,8 @@ export const drc010DatabaseMigrationRisksRule: DeploymentRule = {
     platforms: ['vercel', 'railway'],
     autofixEligible: false,
     fixSafety: 'manual-guided',
-    summary: 'Project uses a database ORM without production build/migration hooks or executes destructive schema resets at startup.',
+    summary:
+      'Project uses a database ORM without production build/migration hooks or executes destructive schema resets at startup.',
     whatItMeans:
       'Your application uses Prisma or another schema migration tool without `prisma generate` / migration deployment steps, or runs destructive commands (`migrate reset`, `--force-reset`, `DROP TABLE`) during startup.',
     whyItHappens:
@@ -23,8 +24,10 @@ export const drc010DatabaseMigrationRisksRule: DeploymentRule = {
     howToResolve:
       'Remove `--force-reset`, `migrate reset`, and `DROP TABLE` from startup scripts. Use `prisma generate` during build and `prisma migrate deploy` in your release/deploy workflow.',
     PlatformNotes: {
-      vercel: 'Run `prisma generate && next build` in your build command so the Prisma Client matches the Vercel Linux runtime.',
-      railway: 'Use `npx prisma migrate deploy` in a deploy command or pre-start script, never `migrate reset`.',
+      vercel:
+        'Run `prisma generate && next build` in your build command so the Prisma Client matches the Vercel Linux runtime.',
+      railway:
+        'Use `npx prisma migrate deploy` in a deploy command or pre-start script, never `migrate reset`.',
     },
     docsUrls: {
       vercel: 'https://vercel.com/docs/storage',
@@ -57,7 +60,8 @@ export const drc010DatabaseMigrationRisksRule: DeploymentRule = {
         fix: {
           eligible: false,
           safety: 'manual-guided',
-          description: 'DRC never automatically alters database migration workflows. Manually replace destructive commands with safe forward migrations.',
+          description:
+            'DRC never automatically alters database migration workflows. Manually replace destructive commands with safe forward migrations.',
         },
         docsUrl: adapter.capabilities.officialDocs.storage,
       });
@@ -85,7 +89,8 @@ export const drc010DatabaseMigrationRisksRule: DeploymentRule = {
         fix: {
           eligible: false,
           safety: 'manual-guided',
-          description: 'Add prisma generate to your build pipeline and configure safe migration deployment.',
+          description:
+            'Add prisma generate to your build pipeline and configure safe migration deployment.',
         },
         docsUrl: adapter.capabilities.officialDocs.storage,
       });

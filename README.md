@@ -153,20 +153,20 @@ Run: drc fix
 
 ## 10. Supported Rules
 
-| Rule ID | Description | Severity | Autofix Tier |
-| :--- | :--- | :--- | :--- |
-| `DRC001` | Missing required environment configuration | Warning | `safe-auto` |
-| `DRC002` | Hardcoded localhost URLs in production code | Critical / Warning | `approval-required` |
-| `DRC003` | Non-persistent SQLite database or file storage | Critical / Warning | `manual-guided` |
-| `DRC004` | Missing or invalid production build/start scripts | Critical / Warning | `safe-auto` / `approval-required` |
-| `DRC005` | Incorrect host or port binding | Critical | `approval-required` |
-| `DRC006` | Sensitive server environment variables exposed to frontend code | Critical | `manual-guided` |
-| `DRC007` | Incorrect frontend API URL configuration | Warning | `approval-required` |
-| `DRC008` | CORS origin mismatch | Warning / Critical | `approval-required` |
-| `DRC009` | Non-persistent local file upload storage | Critical / Warning | `manual-guided` |
-| `DRC010` | Database migration or initialization risks | Critical / Warning | `manual-guided` |
-| `DRC011` | Platform-incompatible long-running processes | Critical / Warning | `manual-guided` |
-| `DRC012` | Conflicting or invalid deployment configuration | Critical | `approval-required` / `manual-guided` |
+| Rule ID  | Description                                                     | Severity           | Autofix Tier                          |
+| :------- | :-------------------------------------------------------------- | :----------------- | :------------------------------------ |
+| `DRC001` | Missing required environment configuration                      | Warning            | `safe-auto`                           |
+| `DRC002` | Hardcoded localhost URLs in production code                     | Critical / Warning | `approval-required`                   |
+| `DRC003` | Non-persistent SQLite database or file storage                  | Critical / Warning | `manual-guided`                       |
+| `DRC004` | Missing or invalid production build/start scripts               | Critical / Warning | `safe-auto` / `approval-required`     |
+| `DRC005` | Incorrect host or port binding                                  | Critical           | `approval-required`                   |
+| `DRC006` | Sensitive server environment variables exposed to frontend code | Critical           | `manual-guided`                       |
+| `DRC007` | Incorrect frontend API URL configuration                        | Warning            | `approval-required`                   |
+| `DRC008` | CORS origin mismatch                                            | Warning / Critical | `approval-required`                   |
+| `DRC009` | Non-persistent local file upload storage                        | Critical / Warning | `manual-guided`                       |
+| `DRC010` | Database migration or initialization risks                      | Critical / Warning | `manual-guided`                       |
+| `DRC011` | Platform-incompatible long-running processes                    | Critical / Warning | `manual-guided`                       |
+| `DRC012` | Conflicting or invalid deployment configuration                 | Critical           | `approval-required` / `manual-guided` |
 
 See [`docs/rule-catalog.md`](./docs/rule-catalog.md) for full details.
 

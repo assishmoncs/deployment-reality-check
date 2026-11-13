@@ -11,7 +11,8 @@ export const drc004BuildStartScriptsRule: DeploymentRule = {
     platforms: ['vercel', 'railway'],
     autofixEligible: true,
     fixSafety: 'safe-auto',
-    summary: 'package.json is missing required production build or start scripts, or uses development-only watchers in production.',
+    summary:
+      'package.json is missing required production build or start scripts, or uses development-only watchers in production.',
     whatItMeans:
       'Cloud deployment platforms inspect package.json scripts ("build" and "start") to compile and launch your application in production.',
     whyItHappens:
@@ -37,7 +38,8 @@ export const drc004BuildStartScriptsRule: DeploymentRule = {
     const findings: Finding[] = [];
 
     for (const svc of manifest.services) {
-      const pkgFile = svc.relativePath === '.' ? 'package.json' : `${svc.relativePath}/package.json`;
+      const pkgFile =
+        svc.relativePath === '.' ? 'package.json' : `${svc.relativePath}/package.json`;
       const buildScript = svc.scripts.build;
       const startScript = svc.scripts.start;
 
@@ -57,7 +59,8 @@ export const drc004BuildStartScriptsRule: DeploymentRule = {
             file: pkgFile,
             line: 1,
             column: 1,
-            suggestedFix: 'Add `"build": "next build"` and `"start": "next start"` to package.json scripts.',
+            suggestedFix:
+              'Add `"build": "next build"` and `"start": "next start"` to package.json scripts.',
             fix: {
               eligible: true,
               safety: 'safe-auto',
@@ -167,7 +170,12 @@ export const drc004BuildStartScriptsRule: DeploymentRule = {
             },
             docsUrl: adapter.capabilities.officialDocs.limits,
           });
-        } else if (svc.hasTypeScript && !buildScript && startScript && startScript.includes('dist/')) {
+        } else if (
+          svc.hasTypeScript &&
+          !buildScript &&
+          startScript &&
+          startScript.includes('dist/')
+        ) {
           findings.push({
             ruleId: 'DRC004',
             title: 'Missing TypeScript build script for dist/ entrypoint',
@@ -177,7 +185,8 @@ export const drc004BuildStartScriptsRule: DeploymentRule = {
             category: 'runtime',
             message: `Service '${svc.name}' (${pkgFile}) starts from "dist/" (${startScript}) but defines no "build" script to compile TypeScript.`,
             whyItHappens: this.definition.whyItHappens,
-            deploymentImpact: 'Deployment will fail at startup because the dist/ directory is never built.',
+            deploymentImpact:
+              'Deployment will fail at startup because the dist/ directory is never built.',
             evidence: `"start": "${startScript}" without "build" script in ${pkgFile}`,
             file: pkgFile,
             line: 1,

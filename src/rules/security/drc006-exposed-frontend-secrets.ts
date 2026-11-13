@@ -26,7 +26,8 @@ export const drc006ExposedFrontendSecretsRule: DeploymentRule = {
     platforms: ['vercel', 'railway'],
     autofixEligible: false,
     fixSafety: 'manual-guided',
-    summary: 'Client-side frontend code references private server secrets or uses public prefixes (NEXT_PUBLIC_/VITE_) on sensitive credentials.',
+    summary:
+      'Client-side frontend code references private server secrets or uses public prefixes (NEXT_PUBLIC_/VITE_) on sensitive credentials.',
     whatItMeans:
       'Your browser-side code accesses a secret environment variable (such as a database URL, private API key, or service role token), or prefixes a private secret with NEXT_PUBLIC_ or VITE_.',
     whyItHappens:
@@ -91,7 +92,8 @@ export const drc006ExposedFrontendSecretsRule: DeploymentRule = {
           fix: {
             eligible: false,
             safety: 'manual-guided',
-            description: 'Move secret usage to a backend API route and rename the variable without NEXT_PUBLIC_/VITE_.',
+            description:
+              'Move secret usage to a backend API route and rename the variable without NEXT_PUBLIC_/VITE_.',
           },
           docsUrl: adapter.capabilities.officialDocs.environmentVariables,
         });
