@@ -38,6 +38,16 @@ export async function runBoundedProcess(
     let timedOut = false;
     let settled = false;
 
+    // Windows cannot spawn .cmd shims directly. Only allow the shell for the
+    // known package-manager script commands used by the build/start verifiers;
+    // their command and arguments are selected from fixed allowlists.
+    const isWindowsPackageManagerScript =
+      process.platform === 'win32' &&
+      /^(?:npm|yarn|pnpm)\.cmd$/i.test(options.command) &&
+      options.args.length === 2 &&
+      options.args[0] === 'run' &&
+      (options.args[1] === 'build' || options.args[1] === 'start');
+
     const child = spawn(options.command, options.args, {
       cwd: options.cwd,
       env: {
@@ -45,7 +55,7 @@ export async function runBoundedProcess(
         ...options.env,
         CI: 'true',
       },
-      shell: false,
+      shell: isWindowsPackageManagerScript,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

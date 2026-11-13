@@ -48,6 +48,11 @@ export async function runControlledStartupCheck(
     let logs = '';
     let settled = false;
 
+    // npm/yarn/pnpm expose .cmd shims on Windows; those must be launched
+    // through cmd.exe. The command is allowlisted above and arguments are fixed.
+    const useWindowsCommandShell =
+      process.platform === 'win32' && /^(?:npm|yarn|pnpm)\.cmd$/i.test(execBin);
+
     const child = spawn(execBin, ['run', 'start'], {
       cwd: options.rootDir,
       env: {
@@ -55,7 +60,7 @@ export async function runControlledStartupCheck(
         PORT: String(port),
         NODE_ENV: 'production',
       },
-      shell: false,
+      shell: useWindowsCommandShell,
       detached: isPosix,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
