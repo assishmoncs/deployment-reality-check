@@ -1,0 +1,16 @@
+src/
+tests/
+examples/
+docs/
+.github/
+.changeset/
+coverage/
+.nyc_output/
+scripts/
+tsconfig.json
+vitest.config.ts
+.eslintrc.cjs
+.prettierrc.json
+*.tgz
+*.log
+.DS_Store
