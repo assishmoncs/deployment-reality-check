@@ -86,9 +86,10 @@ describe('Discovery Subsystem & Security Safeguards', () => {
 
     const validToml = parseSimpleToml('[build]\nbuilder = "NIXPACKS"\n[deploy]\nstartCommand = "npm start"\nreplicas = 2\nhealthcheck = true');
     expect(validToml.error).toBeUndefined();
-    expect((validToml.data?.deploy as any).startCommand).toBe('npm start');
-    expect((validToml.data?.deploy as any).replicas).toBe(2);
-    expect((validToml.data?.deploy as any).healthcheck).toBe(true);
+    const deploy = validToml.data?.deploy as Record<string, unknown> | undefined;
+    expect(deploy?.startCommand).toBe('npm start');
+    expect(deploy?.replicas).toBe(2);
+    expect(deploy?.healthcheck).toBe(true);
 
     const brokenToml = parseSimpleToml('[unclosed_section\nkey = "val"');
     expect(brokenToml.error).toBeDefined();
