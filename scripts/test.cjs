@@ -10,10 +10,14 @@ const rootDir = path.resolve(__dirname, '..');
 const localVitest = path.join(rootDir, 'node_modules', '.bin', process.platform === 'win32' ? 'vitest.cmd' : 'vitest');
 
 if (fs.existsSync(localVitest)) {
-  const res = spawnSync(localVitest, ['run', ...process.argv.slice(2)], {
-    cwd: rootDir,
-    stdio: 'inherit',
-  });
+  const isWindows = process.platform === 'win32';
+  const res = spawnSync(
+    isWindows ? process.env.ComSpec || 'cmd.exe' : localVitest,
+    isWindows
+      ? ['/d', '/s', '/c', '"', localVitest, 'run', ...process.argv.slice(2), '"']
+      : ['run', ...process.argv.slice(2)],
+    { cwd: rootDir, stdio: 'inherit', windowsVerbatimArguments: isWindows },
+  );
   process.exit(res.status ?? 1);
 }
 
