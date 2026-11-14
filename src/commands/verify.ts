@@ -3,7 +3,8 @@ import * as path from 'path';
 import { PlatformId } from '../core/finding';
 import { RuleEngine } from '../core/rule-engine';
 import { getAllRules } from '../core/rule-registry';
-import { discoverProject } from '../discovery';
+import { discoverProject, getProjectParseErrors } from '../discovery';
+import { redactSecrets } from '../utils/redactor';
 import { TerminalStyler } from '../utils/logger';
 import {
   isInteractiveTerminal,
@@ -77,12 +78,14 @@ export async function executeVerifyCommand(
   lines.push('');
 
   // 1. Static Analysis & Config Validation
-  if (manifest.parseErrors.length === 0) {
+  const parseErrors = getProjectParseErrors(manifest, platform);
+  if (parseErrors.length === 0) {
     lines.push(`${s.green('✓')} Configuration and source syntax validation passed`);
   } else {
-    lines.push(
-      `${s.red('✗')} Configuration/source syntax errors found (${manifest.parseErrors.length})`,
-    );
+    lines.push(`${s.red('✗')} Configuration/source syntax errors found (${parseErrors.length})`);
+    for (const { file, error } of parseErrors) {
+      lines.push(`  ${file}: ${redactSecrets(error)}`);
+    }
   }
 
   if (criticalCount === 0) {
@@ -95,8 +98,8 @@ export async function executeVerifyCommand(
     );
   }
 
-  let buildFailed = false;
-  let startupFailed = false;
+  let buildPassed = !options.build;
+  let startupPassed = !options.startup;
 
   // 2. Optional build check (requires permission and not --no-exec)
   if (options.build && !options.noExec) {
@@ -118,11 +121,11 @@ export async function executeVerifyCommand(
     if (!buildReport.executed) {
       lines.push(`${s.yellow('⚠')} ${buildReport.skippedReason}`);
     } else if (buildReport.success) {
+      buildPassed = true;
       lines.push(
         `${s.green('✓')} Production build check succeeded (${buildReport.result?.durationMs ?? 0}ms)`,
       );
     } else {
-      buildFailed = true;
       lines.push(`${s.red('✗')} Production build check failed`);
       if (buildReport.result?.stderr) {
         lines.push(`  ${buildReport.result.stderr.trim()}`);
@@ -154,20 +157,21 @@ export async function executeVerifyCommand(
     if (!startupReport.executed) {
       lines.push(`${s.yellow('⚠')} ${startupReport.skippedReason}`);
     } else if (startupReport.success) {
+      startupPassed = true;
       lines.push(`${s.green('✓')} Controlled startup health check succeeded`);
     } else {
-      startupFailed = true;
       lines.push(`${s.red('✗')} Controlled startup health check failed`);
+      if (startupReport.failureReason) lines.push(`  ${startupReport.failureReason}`);
     }
   }
 
   lines.push('');
-  const ready = criticalCount === 0 && !buildFailed && !startupFailed;
+  const ready = parseErrors.length === 0 && criticalCount === 0 && buildPassed && startupPassed;
   if (ready) {
-    lines.push(s.bold(s.green('Verification Result: PASSED — Project is ready for deployment.')));
+    lines.push(s.bold(s.green('Verification Result: PASSED — All requested checks passed.')));
   } else {
     lines.push(
-      s.bold(s.red('Verification Result: FAILED — Resolve critical issues before deploying.')),
+      s.bold(s.red('Verification Result: FAILED — Review the failed or skipped checks above.')),
     );
   }
 

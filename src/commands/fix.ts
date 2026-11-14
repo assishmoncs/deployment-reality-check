@@ -6,6 +6,7 @@ import { getAllRules } from '../core/rule-registry';
 import { discoverProject } from '../discovery';
 import { applyPatchSafely, PatchApplicationResult } from '../remediation/patch-applier';
 import { generateFixPlan } from '../remediation/patch-generator';
+import { redactSecrets } from '../utils/redactor';
 import { TerminalStyler } from '../utils/logger';
 import {
   isInteractiveTerminal,
@@ -22,6 +23,7 @@ export interface FixCommandOptions {
   noColor?: boolean;
   nonInteractive?: boolean;
   promptAdapter?: PromptAdapter;
+  previewBeforePrompt?: (preview: string) => void;
 }
 
 export interface FixCommandResult {
@@ -89,11 +91,18 @@ export async function executeFixCommand(options: FixCommandOptions): Promise<Fix
   const interactive = isInteractiveTerminal(options.nonInteractive);
 
   for (const patch of fixPlan.patches) {
-    lines.push(s.bold(`Proposed Fix [${patch.ruleId}] (${patch.safety}): ${patch.title}`));
-    lines.push(`File: ${patch.targetFile}`);
-    lines.push(s.dim('--- Diff Preview ---'));
-    lines.push(patch.unifiedDiff.trim());
-    lines.push(s.dim('--------------------'));
+    const preview = [
+      s.bold(`Proposed Fix [${patch.ruleId}] (${patch.safety}): ${redactSecrets(patch.title)}`),
+      `File: ${patch.targetFile}`,
+      s.dim('--- Diff Preview ---'),
+      patch.unifiedDiff.trim(),
+      s.dim('--------------------'),
+    ].join('\n');
+    if (interactive && !options.yes && !options.dryRun && options.previewBeforePrompt) {
+      options.previewBeforePrompt(preview);
+    } else {
+      lines.push(preview);
+    }
 
     if (options.dryRun) {
       lines.push(s.yellow('Dry-run mode: patch was NOT written to disk.'));
@@ -159,7 +168,11 @@ export async function executeFixCommand(options: FixCommandOptions): Promise<Fix
   }
 
   return {
-    exitCode: 0,
+    exitCode: appliedResults.some((result) =>
+      ['conflict-aborted', 'validation-failed'].includes(result.status),
+    )
+      ? 1
+      : 0,
     output: lines.join('\n'),
     appliedResults,
     remainingFindingsCount: remainingFindings.length,

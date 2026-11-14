@@ -34,7 +34,7 @@ Thousands of developers, bootstrapped founders, and AI-assisted builders create 
 - **AST-Powered Static Analysis**: Parses TypeScript, TSX, JavaScript, JSX, JSON, YAML, TOML, and Prisma schemas without executing untrusted project code.
 - **Platform-Aware Evaluation**: Evaluates code against versioned capability specs for **Vercel** and **Railway**.
 - **Multiple Output Formats**: Human-friendly terminal reports (with `--no-color` support), machine-readable JSON (`--format json`), and GitHub Code Scanning SARIF v2.1.0 (`--format sarif`).
-- **Trust-First Remediation Engine**: Previews unified file diffs, supports `--dry-run`, checks SHA-256 hashes for concurrent modifications, validates AST syntax before writing, and re-scans automatically.
+- **Trust-First Remediation Engine**: Previews unified file diffs with secret redaction, supports `--dry-run`, checks SHA-256 hashes for concurrent modifications, validates AST syntax before writing, and re-scans automatically.
 - **Built-In Secret Redaction**: Automatically redacts API keys, tokens, JWTs, and database passwords across all outputs and logs.
 
 ## 4. Supported Frameworks

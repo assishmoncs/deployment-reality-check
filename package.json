@@ -16,13 +16,13 @@
     "production-readiness",
     "open-source"
   ],
-  "homepage": "https://github.com/deployment-reality-check/deployment-reality-check#readme",
+  "homepage": "https://github.com/assishmoncs/deployment-reality-check#readme",
   "bugs": {
-    "url": "https://github.com/deployment-reality-check/deployment-reality-check/issues"
+    "url": "https://github.com/assishmoncs/deployment-reality-check/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deployment-reality-check/deployment-reality-check.git"
+    "url": "git+https://github.com/assishmoncs/deployment-reality-check.git"
   },
   "license": "MIT",
   "author": "Deployment Reality Check Contributors",

@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { PlatformId } from '../core/finding';
 import { ProjectManifest } from '../core/project-manifest';
 import { discoverDeploymentConfigs } from './config-reader';
 import { discoverDependencies } from './dependency-reader';
@@ -38,4 +39,16 @@ export function discoverProject(rootDir: string, walkOptions?: WalkOptions): Pro
     configFacts: cfgInfo.configFacts,
     parseErrors: [...depInfo.parseErrors, ...cfgInfo.parseErrors, ...srcInfo.parseErrors],
   };
+}
+
+export function getProjectParseErrors(
+  manifest: ProjectManifest,
+  platform: PlatformId,
+): ProjectManifest['parseErrors'] {
+  return manifest.parseErrors.filter(({ file }) => {
+    const name = path.posix.basename(file);
+    if (name === 'vercel.json') return platform === 'vercel';
+    if (name === 'railway.json' || name === 'railway.toml') return platform === 'railway';
+    return true;
+  });
 }

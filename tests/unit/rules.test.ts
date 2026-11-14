@@ -307,6 +307,13 @@ describe('All 12 Deployment Rules — Positive, Negative, and Edge-Case Suite', 
     const findings = engine
       .evaluateProject(manifest, 'vercel')
       .filter((f) => f.ruleId === 'DRC012');
-    expect(findings).toHaveLength(3);
+    expect(findings).toHaveLength(2);
+    expect(findings.every((finding) => finding.file === 'vercel.json')).toBe(true);
+
+    const railwayFindings = engine
+      .evaluateProject(manifest, 'railway')
+      .filter((f) => f.ruleId === 'DRC012');
+    expect(railwayFindings).toHaveLength(1);
+    expect(railwayFindings[0]?.file).toBe('railway.json');
   });
 });

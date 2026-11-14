@@ -1,8 +1,9 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import { Finding } from '../core/finding';
 import { ProjectManifest } from '../core/project-manifest';
 import { assertSafeProjectPath, readTextFileSafe } from '../utils/fs-safe';
-import { generateSafeEnvPlaceholder } from '../utils/redactor';
+import { generateSafeEnvPlaceholder, redactSecrets } from '../utils/redactor';
 import { computeContentSha256, FixPlan, GuidedManualStep, ProposedPatch } from './fix-plan';
 import { renderEnvExampleTemplate } from './templates/config-templates';
 
@@ -28,9 +29,34 @@ function replaceOnTargetLine(
 }
 
 function createUnifiedDiff(filePath: string, oldText: string, newText: string): string {
-  return Diff.createTwoFilesPatch(`a/${filePath}`, `b/${filePath}`, oldText, newText, '', '', {
-    context: 3,
-  });
+  const redact = (content: string) => {
+    if (/^\.env(?:\.|$)/.test(path.posix.basename(filePath))) {
+      // Keep variable names visible while withholding existing and proposed values.
+      return content
+        .split('\n')
+        .map((line) => {
+          const assignment = line.match(/^(\s*(?:export[ \t]+)?[A-Za-z_][A-Za-z0-9_]*[ \t]*=)/);
+          if (assignment) return `${assignment[1]}[REDACTED]`;
+          return line.trim() ? '[REDACTED]' : '';
+        })
+        .join('\n');
+    }
+    return redactSecrets(content);
+  };
+  const oldPreview = redact(oldText);
+  const newPreview = redact(newText);
+  if (oldPreview === newPreview) return 'Changes are hidden by secret redaction.';
+  return Diff.createTwoFilesPatch(
+    `a/${filePath}`,
+    `b/${filePath}`,
+    oldPreview,
+    newPreview,
+    '',
+    '',
+    {
+      context: 3,
+    },
+  );
 }
 
 export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]): FixPlan {
@@ -150,11 +176,15 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
         );
 
         if (svc?.framework === 'nextjs') {
-          if (!scripts.build || !scripts.build.includes('next build')) {
+          if (!scripts.build && finding.fix.safety === 'safe-auto') {
             scripts.build = 'next build';
           }
-          if (!scripts.start || scripts.start.includes('next dev')) {
-            scripts.start = 'next start';
+          if (finding.platform === 'railway') {
+            if (!scripts.start && finding.fix.safety === 'safe-auto') {
+              scripts.start = 'next start';
+            } else if (scripts.start && finding.fix.safety === 'approval-required') {
+              scripts.start = scripts.start.replace(/\bnext dev\b/, 'next start');
+            }
           }
         } else if (svc?.framework === 'react-vite') {
           if (!scripts.build) {
@@ -167,7 +197,10 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
           if (!scripts.start) {
             const entry = svc.main ?? (svc.hasTypeScript ? 'dist/index.js' : 'index.js');
             scripts.start = `node ${entry}`;
-          } else if (/\b(nodemon|ts-node-dev)\b/.test(scripts.start)) {
+          } else if (
+            finding.fix.safety === 'approval-required' &&
+            /\b(nodemon|ts-node-dev)\b/.test(scripts.start)
+          ) {
             if (!scripts.dev) {
               scripts.dev = scripts.start;
             }
@@ -399,7 +432,7 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
           parsed.deploy !== null
         ) {
           const deployObj = parsed.deploy as Record<string, unknown>;
-          if (deployObj.startCommand === '') {
+          if (typeof deployObj.startCommand === 'string' && deployObj.startCommand.trim() === '') {
             deployObj.startCommand = 'npm run start';
           }
         }

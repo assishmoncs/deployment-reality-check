@@ -82,16 +82,30 @@ export function applyPatchSafely(rootDir: string, patch: ProposedPatch): PatchAp
     };
   }
 
-  // 3. Atomic write with rollback protection
+  // Stage the replacement beside the destination, then rename it atomically.
   const parentDir = path.dirname(safeTargetPath);
-  fs.mkdirSync(parentDir, { recursive: true });
-  const tempPath = path.join(
-    parentDir,
-    `.drc-tmp-${process.pid}-${Date.now()}-${path.basename(safeTargetPath)}`,
-  );
-
+  let stagingDir: string | undefined;
   try {
-    fs.writeFileSync(tempPath, patch.proposedContent, 'utf8');
+    fs.mkdirSync(parentDir, { recursive: true });
+    assertSafeProjectPath(rootDir, patch.targetFile);
+    stagingDir = fs.mkdtempSync(path.join(parentDir, '.drc-tmp-'));
+    const tempPath = path.join(stagingDir, 'replacement');
+    fs.writeFileSync(tempPath, patch.proposedContent, {
+      encoding: 'utf8',
+      flag: 'wx',
+      mode: existsNow ? fs.statSync(safeTargetPath).mode & 0o777 : undefined,
+    });
+    assertSafeProjectPath(rootDir, patch.targetFile);
+    const existsBeforeRename = fs.existsSync(safeTargetPath);
+    const latestContent = existsBeforeRename ? fs.readFileSync(safeTargetPath, 'utf8') : '';
+    if (existsBeforeRename !== existsNow || latestContent !== currentDiskContent) {
+      return {
+        patchId: patch.id,
+        targetFile: patch.targetFile,
+        status: 'conflict-aborted',
+        reason: 'Target changed while staging the patch.',
+      };
+    }
     fs.renameSync(tempPath, safeTargetPath);
     return {
       patchId: patch.id,
@@ -99,27 +113,20 @@ export function applyPatchSafely(rootDir: string, patch: ProposedPatch): PatchAp
       status: 'applied',
     };
   } catch (err) {
-    if (fs.existsSync(tempPath)) {
-      try {
-        fs.unlinkSync(tempPath);
-      } catch {
-        // ignore cleanup error
-      }
-    }
-    // Restore original if needed
-    if (
-      existsNow &&
-      (!fs.existsSync(safeTargetPath) ||
-        fs.readFileSync(safeTargetPath, 'utf8') !== currentDiskContent)
-    ) {
-      fs.writeFileSync(safeTargetPath, currentDiskContent, 'utf8');
-    }
     const msg = err instanceof Error ? err.message : String(err);
     return {
       patchId: patch.id,
       targetFile: patch.targetFile,
       status: 'validation-failed',
-      reason: `Write failed and rolled back: ${msg}`,
+      reason: `Write failed: ${msg}`,
     };
+  } finally {
+    if (stagingDir) {
+      try {
+        fs.rmSync(stagingDir, { recursive: true, force: true });
+      } catch {
+        // Cleanup is best effort after an unsuccessful write.
+      }
+    }
   }
 }
