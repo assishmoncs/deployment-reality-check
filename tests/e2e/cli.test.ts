@@ -174,7 +174,7 @@ srv.listen(port, '127.0.0.1');
       });
       expect(timeoutRes.timedOut).toBe(true);
     } finally {
-      fs.rmSync(tmpProj, { recursive: true, force: true });
+      fs.rmSync(tmpProj, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });

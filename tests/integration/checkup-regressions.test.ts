@@ -20,7 +20,7 @@ describe('Deployment checkup regressions', () => {
   });
 
   afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   function write(file: string, content: string) {
