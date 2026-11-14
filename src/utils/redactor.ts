@@ -44,17 +44,12 @@ export function redactSecrets(input: string): string {
   }
 
   output = output.replace(
-    /^(\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*)(.+)$/gm,
-    (_full, prefix: string, rawVal: string) => {
-      const keyMatch = prefix.match(/([A-Za-z_][A-Za-z0-9_]*)/);
-      const keyName = keyMatch ? (keyMatch[1] ?? '') : '';
+    /^([ \t]*(?:export[ \t]+)?([A-Za-z_][A-Za-z0-9_]*)[ \t]*=[ \t]*)(.+)$/gm,
+    (_full, prefix: string, keyName: string, rawVal: string) => {
       const trimmedVal = rawVal.trim();
       if (
         trimmedVal === '' ||
         trimmedVal.startsWith('#') ||
-        trimmedVal.includes('your_') ||
-        trimmedVal.includes('example') ||
-        trimmedVal.includes('<') ||
         trimmedVal === '""' ||
         trimmedVal === "''"
       ) {

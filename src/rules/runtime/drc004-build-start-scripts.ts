@@ -47,28 +47,36 @@ export const drc004BuildStartScriptsRule: DeploymentRule = {
         if (!buildScript || !buildScript.includes('next build')) {
           findings.push({
             ruleId: 'DRC004',
-            title: 'Missing Next.js production build script',
-            severity: 'critical',
-            confidence: 'high',
+            title: buildScript
+              ? 'Review custom Next.js production build script'
+              : 'Missing Next.js production build script',
+            severity: buildScript ? 'warning' : 'critical',
+            confidence: buildScript ? 'medium' : 'high',
             platform,
             category: 'runtime',
-            message: `Service '${svc.name}' (${pkgFile}) is a Next.js project but does not define a valid "build": "next build" script.`,
+            message: buildScript
+              ? `DRC could not confirm that the custom build script for '${svc.name}' (${pkgFile}) runs next build.`
+              : `Next.js service '${svc.name}' (${pkgFile}) has no "build" script.`,
             whyItHappens: this.definition.whyItHappens,
             deploymentImpact: this.definition.deploymentImpact,
             evidence: `package.json scripts.build is ${buildScript ? `"${buildScript}"` : 'missing'} in ${pkgFile}`,
             file: pkgFile,
             line: 1,
             column: 1,
-            suggestedFix:
-              'Add `"build": "next build"` and `"start": "next start"` to package.json scripts.',
+            suggestedFix: buildScript
+              ? 'Check that your custom build script runs next build, and keep any required setup steps.'
+              : 'Add `"build": "next build"` to package.json scripts.',
             fix: {
-              eligible: true,
-              safety: 'safe-auto',
-              description: `Add production "build" and "start" scripts to ${pkgFile}`,
+              eligible: !buildScript,
+              safety: buildScript ? 'manual-guided' : 'safe-auto',
+              description: buildScript
+                ? `Review the custom build script in ${pkgFile}`
+                : `Add a production build script to ${pkgFile}`,
             },
             docsUrl: adapter.capabilities.officialDocs.configuration,
           });
-        } else if (platform === 'railway' && (!startScript || startScript.includes('next dev'))) {
+        }
+        if (platform === 'railway' && (!startScript || startScript.includes('next dev'))) {
           findings.push({
             ruleId: 'DRC004',
             title: 'Missing or dev-mode Next.js start script for Railway',
@@ -86,7 +94,7 @@ export const drc004BuildStartScriptsRule: DeploymentRule = {
             suggestedFix: 'Set `"start": "next start"` in package.json.',
             fix: {
               eligible: true,
-              safety: 'safe-auto',
+              safety: startScript ? 'approval-required' : 'safe-auto',
               description: `Set "start": "next start" in ${pkgFile}`,
             },
             docsUrl: adapter.capabilities.officialDocs.configuration,

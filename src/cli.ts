@@ -135,41 +135,46 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
   const positional: string[] = [];
   const flags: Record<string, string | boolean> = {};
 
+  const valueFlags = new Set(['platform', 'format', 'fail-on']);
+  const booleanFlags = new Set([
+    'no-color',
+    'non-interactive',
+    'dry-run',
+    'yes',
+    'build',
+    'startup',
+    'no-exec',
+    'allow-exec',
+  ]);
+
   for (let i = 0; i < args.length; i++) {
     const token = args[i]!;
     if (token.startsWith('--')) {
       const eqIdx = token.indexOf('=');
-      if (eqIdx !== -1) {
-        const k = token.slice(2, eqIdx);
-        const v = token.slice(eqIdx + 1);
-        flags[k] = v;
-      } else {
-        const k = token.slice(2);
-        if (['platform', 'format', 'fail-on'].includes(k)) {
-          const next = args[i + 1];
-          if (!next || next.startsWith('-')) {
-            io.stderr(`Error: Flag '--${k}' requires a value.`);
-            return 2;
-          }
-          flags[k] = next;
-          i++;
-        } else if (
-          [
-            'no-color',
-            'non-interactive',
-            'dry-run',
-            'yes',
-            'build',
-            'startup',
-            'no-exec',
-            'allow-exec',
-          ].includes(k)
-        ) {
-          flags[k] = true;
-        } else {
-          io.stderr(`Error: Unknown option '--${k}'. Run 'drc ${command} --help' for usage.`);
+      const key = token.slice(2, eqIdx === -1 ? undefined : eqIdx);
+      const inlineValue = eqIdx === -1 ? undefined : token.slice(eqIdx + 1);
+
+      if (valueFlags.has(key)) {
+        const value = inlineValue ?? args[i + 1];
+        if (!value || (inlineValue === undefined && value.startsWith('-'))) {
+          io.stderr(`Error: Flag '--${key}' requires a value.`);
           return 2;
         }
+        flags[key] = value;
+        if (inlineValue === undefined) i++;
+      } else if (booleanFlags.has(key)) {
+        const next = args[i + 1];
+        const separateBoolean = inlineValue === undefined && (next === 'true' || next === 'false');
+        const value = separateBoolean ? next : inlineValue;
+        if (value !== undefined && value !== 'true' && value !== 'false') {
+          io.stderr(`Error: Flag '--${key}' accepts only true or false.`);
+          return 2;
+        }
+        flags[key] = value !== 'false';
+        if (separateBoolean) i++;
+      } else {
+        io.stderr(`Error: Unknown option '--${key}'. Run 'drc ${command} --help' for usage.`);
+        return 2;
       }
     } else if (token.startsWith('-') && token.length > 1) {
       const short = token.slice(1);
@@ -246,6 +251,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
       platform: platformFlag,
       dryRun: Boolean(flags['dry-run']),
       yes: Boolean(flags.yes),
+      previewBeforePrompt: io.stdout,
       noColor,
       nonInteractive,
     });

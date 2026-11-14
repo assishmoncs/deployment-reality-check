@@ -10,7 +10,12 @@ export function isPathInsideRoot(rootDir: string, candidatePath: string): boolea
   const resolvedCandidate = path.resolve(candidatePath);
   if (resolvedRoot === resolvedCandidate) return true;
   const relative = path.relative(resolvedRoot, resolvedCandidate);
-  return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
+  return (
+    relative !== '' &&
+    relative !== '..' &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  );
 }
 
 export function assertSafeProjectPath(rootDir: string, targetPath: string): string {
@@ -23,25 +28,20 @@ export function assertSafeProjectPath(rootDir: string, targetPath: string): stri
     );
   }
 
-  if (fs.existsSync(resolvedTarget)) {
-    const stat = fs.lstatSync(resolvedTarget);
-    if (stat.isSymbolicLink()) {
-      const realTarget = fs.realpathSync(resolvedTarget);
-      if (!isPathInsideRoot(resolvedRoot, realTarget)) {
-        throw new Error(
-          `Security violation: Symbolic link '${targetPath}' points outside project root to '${realTarget}'.`,
-        );
-      }
+  let current = resolvedRoot;
+  for (const segment of path.relative(resolvedRoot, resolvedTarget).split(path.sep)) {
+    current = path.join(current, segment);
+    let stat: fs.Stats;
+    try {
+      stat = fs.lstatSync(current);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') break;
+      throw error;
     }
-  } else {
-    const parentDir = path.dirname(resolvedTarget);
-    if (fs.existsSync(parentDir)) {
-      const realParent = fs.realpathSync(parentDir);
-      if (!isPathInsideRoot(resolvedRoot, realParent)) {
-        throw new Error(
-          `Security violation: Parent directory '${parentDir}' resolves outside project root.`,
-        );
-      }
+    if (stat.isSymbolicLink() && !isPathInsideRoot(resolvedRoot, fs.realpathSync(current))) {
+      throw new Error(
+        `Security violation: Symbolic link '${current}' resolves outside project root.`,
+      );
     }
   }
 

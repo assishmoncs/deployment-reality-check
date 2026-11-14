@@ -3,7 +3,7 @@ import * as path from 'path';
 import { Finding, PlatformId, SEVERITY_ORDER, Severity } from '../core/finding';
 import { RuleEngine } from '../core/rule-engine';
 import { getAllRules } from '../core/rule-registry';
-import { discoverProject } from '../discovery';
+import { discoverProject, getProjectParseErrors } from '../discovery';
 import { renderJsonScanReport } from '../reporting/json';
 import { renderSarifScanReport } from '../reporting/sarif';
 import { renderTerminalScanReport } from '../reporting/terminal';
@@ -103,6 +103,7 @@ export async function executeScanCommand(options: ScanCommandOptions): Promise<S
     }
   }
 
+  const parseErrors = getProjectParseErrors(manifest, platform);
   const allRules = getAllRules();
   const engine = new RuleEngine(allRules);
   const findings = engine.evaluateProject(manifest, platform);
@@ -128,6 +129,7 @@ export async function executeScanCommand(options: ScanCommandOptions): Promise<S
       version,
       platform,
       findings,
+      parseErrors,
     });
   } else {
     output = renderTerminalScanReport(
@@ -143,7 +145,8 @@ export async function executeScanCommand(options: ScanCommandOptions): Promise<S
     );
   }
 
-  const exitCode = shouldFailOnFindings(findings, failOn) ? 1 : 0;
+  const exitCode =
+    failOn !== 'none' && (parseErrors.length > 0 || shouldFailOnFindings(findings, failOn)) ? 1 : 0;
   return {
     exitCode,
     output,

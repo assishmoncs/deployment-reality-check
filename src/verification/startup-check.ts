@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import * as http from 'http';
+import * as net from 'net';
 import { PackageManagerType } from '../core/project-manifest';
 import { redactSecrets } from '../utils/redactor';
 import { terminateProcessTree } from '../utils/process-tree';
@@ -18,6 +19,18 @@ export interface StartupCheckReport {
   success: boolean;
   httpStatus?: number;
   logs: string;
+  failureReason?: string;
+}
+
+function selectProbePort(port = 0): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const reservation = net.createServer();
+    reservation.once('error', reject);
+    reservation.listen(port, '127.0.0.1', () => {
+      const address = reservation.address() as net.AddressInfo;
+      reservation.close((error) => (error ? reject(error) : resolve(address.port)));
+    });
+  });
 }
 
 export async function runControlledStartupCheck(
@@ -32,7 +45,13 @@ export async function runControlledStartupCheck(
     };
   }
 
-  const port = options.port ?? 45912;
+  let port: number;
+  try {
+    port = await selectProbePort(options.port);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { executed: true, success: false, logs: '', failureReason: redactSecrets(message) };
+  }
   const timeoutMs = options.timeoutMs ?? 8000;
   const bin =
     options.packageManager === 'yarn'
@@ -77,63 +96,52 @@ export async function runControlledStartupCheck(
       });
     }
 
-    const cleanupAndResolve = async (report: StartupCheckReport) => {
+    let request: http.ClientRequest | undefined;
+    const finish = async (report: Omit<StartupCheckReport, 'executed' | 'logs'>) => {
       if (settled) return;
       settled = true;
+      clearInterval(probeInterval);
+      clearTimeout(timer);
+      request?.destroy();
       await terminateProcessTree(child);
-      resolve({
-        ...report,
-        logs: redactSecrets(logs),
-      });
+      resolve({ executed: true, ...report, logs: redactSecrets(logs) });
     };
 
     const timer = setTimeout(() => {
-      clearInterval(probeInterval);
-      cleanupAndResolve({
-        executed: true,
+      void finish({
         success: false,
-        logs,
-        skippedReason: `Startup check timed out after ${timeoutMs}ms waiting for port ${port}`,
+        failureReason: `Timed out after ${timeoutMs}ms waiting for HTTP on port ${port}.`,
       });
     }, timeoutMs);
 
     const probeInterval = setInterval(() => {
-      const req = http.get(`http://127.0.0.1:${port}/`, (res) => {
-        clearInterval(probeInterval);
-        clearTimeout(timer);
+      if (request) return;
+      const probe = http.get(`http://127.0.0.1:${port}/`, (res) => {
         res.resume();
-        cleanupAndResolve({
-          executed: true,
-          success: true,
+        const status = res.statusCode ?? 0;
+        const success = status >= 200 && status < 400;
+        void finish({
+          success,
           httpStatus: res.statusCode,
-          logs,
+          failureReason: success ? undefined : `GET / returned HTTP ${status}.`,
         });
       });
-      req.on('error', () => {
-        // server not listening yet
+      request = probe;
+      probe.setTimeout(500, () => probe.destroy());
+      probe.on('error', () => {
+        request = undefined;
       });
     }, 250);
 
     child.on('error', (error) => {
-      clearInterval(probeInterval);
-      clearTimeout(timer);
-      cleanupAndResolve({
-        executed: true,
-        success: false,
-        logs: `${logs}\nProcess spawn error: ${error.message}`,
-      });
+      void finish({ success: false, failureReason: redactSecrets(error.message) });
     });
 
-    child.on('close', (code) => {
-      clearInterval(probeInterval);
-      clearTimeout(timer);
-      if (!settled) {
-        cleanupAndResolve({
-          executed: true,
-          success: code === 0,
-          logs,
-        });
-      }
+    child.on('exit', (code) => {
+      void finish({
+        success: false,
+        failureReason: `The start script exited (${code ?? 'signal'}) before the HTTP probe succeeded.`,
+      });
     });
   });
 }

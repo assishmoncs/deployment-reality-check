@@ -18,6 +18,7 @@ export function renderSarifScanReport(params: {
   platform: PlatformId;
   findings: Finding[];
   rules?: RuleDefinition[];
+  parseErrors?: Array<{ file: string; error: string }>;
 }): string {
   const rules = params.rules ?? getAllRuleDefinitions();
 
@@ -76,12 +77,25 @@ export function renderSarifScanReport(params: {
         tool: {
           driver: {
             name: 'Deployment Reality Check (DRC)',
-            informationUri: 'https://github.com/deployment-reality-check/deployment-reality-check',
+            informationUri: 'https://github.com/assishmoncs/deployment-reality-check',
             version: params.version,
             rules: sarifRules,
           },
         },
         results,
+        ...(params.parseErrors?.length
+          ? {
+              invocations: [
+                {
+                  executionSuccessful: false,
+                  toolExecutionNotifications: params.parseErrors.map(({ file, error }) => ({
+                    level: 'error',
+                    message: { text: `${file}: ${redactSecrets(error)}` },
+                  })),
+                },
+              ],
+            }
+          : {}),
       },
     ],
   };

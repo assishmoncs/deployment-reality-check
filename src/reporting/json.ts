@@ -1,5 +1,6 @@
 import { Finding, PlatformId } from '../core/finding';
 import { ProjectManifest } from '../core/project-manifest';
+import { getProjectParseErrors } from '../discovery';
 import { redactSecrets } from '../utils/redactor';
 
 export interface JsonScanReport {
@@ -18,6 +19,7 @@ export interface JsonScanReport {
     autofixableCount: number;
   };
   findings: Finding[];
+  parseErrors?: ProjectManifest['parseErrors'];
 }
 
 export function buildJsonScanReport(params: {
@@ -34,6 +36,13 @@ export function buildJsonScanReport(params: {
     evidence: redactSecrets(f.evidence),
     suggestedFix: redactSecrets(f.suggestedFix),
   }));
+
+  const parseErrors = getProjectParseErrors(params.manifest, params.platform).map(
+    ({ file, error }) => ({
+      file,
+      error: redactSecrets(error),
+    }),
+  );
 
   const critical = sanitizedFindings.filter((f) => f.severity === 'critical').length;
   const warning = sanitizedFindings.filter((f) => f.severity === 'warning').length;
@@ -56,6 +65,7 @@ export function buildJsonScanReport(params: {
       autofixableCount,
     },
     findings: sanitizedFindings,
+    ...(parseErrors.length > 0 ? { parseErrors } : {}),
   };
 }
 

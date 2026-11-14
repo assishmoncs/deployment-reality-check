@@ -41,7 +41,7 @@ export const drc012DeploymentConfigRule: DeploymentRule = {
     const cfg = manifest.configFacts;
 
     // 1. Check JSON/TOML parse errors in deployment configs
-    if (cfg.vercelJsonParseError && cfg.vercelJsonPath) {
+    if (platform === 'vercel' && cfg.vercelJsonParseError && cfg.vercelJsonPath) {
       findings.push({
         ruleId: 'DRC012',
         title: 'Malformed vercel.json configuration file',
@@ -66,7 +66,7 @@ export const drc012DeploymentConfigRule: DeploymentRule = {
       });
     }
 
-    if (cfg.railwayJsonParseError && cfg.railwayJsonPath) {
+    if (platform === 'railway' && cfg.railwayJsonParseError && cfg.railwayJsonPath) {
       findings.push({
         ruleId: 'DRC012',
         title: 'Malformed railway.json configuration file',
@@ -91,7 +91,7 @@ export const drc012DeploymentConfigRule: DeploymentRule = {
       });
     }
 
-    if (cfg.railwayTomlParseError && cfg.railwayTomlPath) {
+    if (platform === 'railway' && cfg.railwayTomlParseError && cfg.railwayTomlPath) {
       findings.push({
         ruleId: 'DRC012',
         title: 'Malformed railway.toml configuration file',
@@ -117,7 +117,7 @@ export const drc012DeploymentConfigRule: DeploymentRule = {
     }
 
     // 2. Semantic validation of vercel.json
-    if (cfg.vercelJsonRaw && cfg.vercelJsonPath) {
+    if (platform === 'vercel' && cfg.vercelJsonRaw && cfg.vercelJsonPath) {
       const vRaw = cfg.vercelJsonRaw;
       if ('builds' in vRaw && 'functions' in vRaw) {
         findings.push({
@@ -183,10 +183,14 @@ export const drc012DeploymentConfigRule: DeploymentRule = {
     }
 
     // 3. Semantic validation of railway.json
-    if (cfg.railwayJsonRaw && cfg.railwayJsonPath) {
+    if (platform === 'railway' && cfg.railwayJsonRaw && cfg.railwayJsonPath) {
       const rRaw = cfg.railwayJsonRaw;
       const deployObj = rRaw.deploy as Record<string, unknown> | undefined;
-      if (deployObj && 'startCommand' in deployObj && typeof deployObj.startCommand === 'string') {
+      if (
+        deployObj &&
+        typeof deployObj === 'object' &&
+        typeof deployObj.startCommand === 'string'
+      ) {
         const startCmd = deployObj.startCommand.trim();
         if (startCmd === '') {
           findings.push({

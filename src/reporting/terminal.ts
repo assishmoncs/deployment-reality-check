@@ -1,5 +1,6 @@
 import { Finding, PlatformId } from '../core/finding';
 import { FrameworkType, ProjectManifest } from '../core/project-manifest';
+import { getProjectParseErrors } from '../discovery';
 import { TerminalStyler } from '../utils/logger';
 import { redactSecrets } from '../utils/redactor';
 
@@ -73,7 +74,16 @@ export function renderTerminalScanReport(
   }
   lines.push('');
 
-  if (meta.findings.length === 0) {
+  const parseErrors = getProjectParseErrors(meta.manifest, meta.platform);
+  if (parseErrors.length > 0) {
+    lines.push(s.red('✗ Scan incomplete due to configuration/source syntax errors:'));
+    for (const { file, error } of parseErrors) {
+      lines.push(`  ${file}: ${redactSecrets(error)}`);
+    }
+    lines.push('');
+  }
+
+  if (meta.findings.length === 0 && parseErrors.length === 0) {
     lines.push(s.green('✓ No deployment blockers or warnings detected for this target!'));
     lines.push('');
   } else {
@@ -121,13 +131,13 @@ export function renderTerminalScanReport(
   if (infoCount > 0) {
     lines.push(`${infoCount} Informational`);
   }
-  lines.push(`${meta.passedChecksCount} Passed`);
+  if (parseErrors.length === 0) lines.push(`${meta.passedChecksCount} Passed`);
   lines.push('');
   if (meta.findings.some((f) => f.fix.eligible)) {
     lines.push(`Run: ${s.cyan('drc fix')}`);
   } else if (meta.findings.length > 0) {
     lines.push(`Run: ${s.cyan(`drc explain ${meta.findings[0]!.ruleId}`)}`);
-  } else {
+  } else if (parseErrors.length === 0) {
     lines.push(`Status: ${s.green('Ready to deploy')}`);
   }
   lines.push(divider);

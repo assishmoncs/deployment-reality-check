@@ -5,7 +5,7 @@ Thank you for your interest in contributing to **Deployment Reality Check (DRC)*
 ## Local Development Setup
 
 ```bash
-git clone https://github.com/deployment-reality-check/deployment-reality-check.git
+git clone https://github.com/assishmoncs/deployment-reality-check.git
 cd deployment-reality-check
 npm ci
 npm run build
