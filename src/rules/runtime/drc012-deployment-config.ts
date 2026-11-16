@@ -14,7 +14,7 @@ export const drc012DeploymentConfigRule: DeploymentRule = {
     summary:
       'Deployment configuration files (vercel.json, railway.json, railway.toml) contain syntax errors, deprecated conflicting keys, or broken command references.',
     whatItMeans:
-      'Your project contains a platform configuration file that is malformed JSON/TOML, combines mutually exclusive properties (such as `builds` and `functions` in vercel.json), or references a non-existent build/start script.',
+      'Your project contains a platform configuration file that is malformed JSON/TOML, combines mutually exclusive properties (such as `builds` and `functions` in vercel.json), or has an invalid build/start command value.',
     whyItHappens:
       'Hand-editing vercel.json or railway.json, or copying outdated configuration snippets from older platform versions, often introduces conflicting fields or syntax mistakes.',
     deploymentImpact:
@@ -22,7 +22,7 @@ export const drc012DeploymentConfigRule: DeploymentRule = {
     whenItApplies:
       'Applies when vercel.json, railway.json, or railway.toml fails syntax parsing, uses conflicting properties, or specifies invalid cron/function settings.',
     howToResolve:
-      'Fix JSON/TOML syntax errors, remove legacy `builds` when using `functions` in vercel.json, and ensure configured commands match package.json.',
+      'Fix JSON/TOML syntax errors, remove legacy `builds` when using `functions` in vercel.json, and set configured commands to valid strings.',
     PlatformNotes: {
       vercel:
         'In vercel.json, `builds` is a legacy property and cannot be combined with `functions`. Cron schedules must have 5 fields and paths must start with `/`.',
@@ -182,37 +182,58 @@ export const drc012DeploymentConfigRule: DeploymentRule = {
       }
     }
 
-    // 3. Semantic validation of railway.json
-    if (platform === 'railway' && cfg.railwayJsonRaw && cfg.railwayJsonPath) {
-      const rRaw = cfg.railwayJsonRaw;
-      const deployObj = rRaw.deploy as Record<string, unknown> | undefined;
-      if (
-        deployObj &&
-        typeof deployObj === 'object' &&
-        typeof deployObj.startCommand === 'string'
-      ) {
-        const startCmd = deployObj.startCommand.trim();
-        if (startCmd === '') {
+    if (platform === 'railway') {
+      for (const [file, config] of [
+        [cfg.railwayJsonPath, cfg.railwayJsonRaw],
+        [cfg.railwayTomlPath, cfg.railwayTomlRaw],
+      ] as const) {
+        if (!file || !config) continue;
+        for (const [section, key] of [
+          ['build', 'buildCommand'],
+          ['deploy', 'startCommand'],
+        ] as const) {
+          const settings = config[section];
+          if (settings === undefined) continue;
+          const validSection =
+            settings !== null && typeof settings === 'object' && !Array.isArray(settings);
+          const command = validSection ? (settings as Record<string, unknown>)[key] : undefined;
+          if (
+            validSection &&
+            (command === undefined ||
+              command === null ||
+              (typeof command === 'string' && command.trim() !== ''))
+          )
+            continue;
+
+          const field = validSection ? `${section}.${key}` : section;
+          const suggestedFix = validSection
+            ? `Set ${field} to a non-empty command string or remove the field to use Railway defaults.`
+            : `Set ${section} to a configuration object or remove it.`;
+          const autoStart =
+            /(?:^|\/)railway\.json$/.test(file) &&
+            typeof command === 'string' &&
+            key === 'startCommand';
           findings.push({
             ruleId: 'DRC012',
-            title: 'Empty deploy.startCommand in railway.json',
+            title: `Invalid ${field} in Railway configuration`,
             severity: 'critical',
             confidence: 'high',
             platform,
             category: 'runtime',
-            message: `${cfg.railwayJsonPath} specifies an empty \`deploy.startCommand\`.`,
+            message: `${file} has an invalid value for ${field}.`,
             whyItHappens: this.definition.whyItHappens,
             deploymentImpact: this.definition.deploymentImpact,
-            evidence: `"startCommand": "" in ${cfg.railwayJsonPath}`,
-            file: cfg.railwayJsonPath,
+            evidence: `${field} in ${file}`,
+            file,
             line: 1,
             column: 1,
-            suggestedFix:
-              'Provide a valid start command (e.g. `"npm run start"`) or remove the empty `startCommand` field.',
+            suggestedFix,
             fix: {
-              eligible: true,
-              safety: 'approval-required',
-              description: `Set deploy.startCommand to "npm run start" in ${cfg.railwayJsonPath}`,
+              eligible: autoStart,
+              safety: autoStart ? 'approval-required' : 'manual-guided',
+              description: autoStart
+                ? `Remove the empty field ${field} from ${file} to use Railway defaults.`
+                : suggestedFix,
             },
             docsUrl: adapter.capabilities.officialDocs.configuration,
           });

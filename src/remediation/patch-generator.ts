@@ -433,7 +433,7 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
         ) {
           const deployObj = parsed.deploy as Record<string, unknown>;
           if (typeof deployObj.startCommand === 'string' && deployObj.startCommand.trim() === '') {
-            deployObj.startCommand = 'npm run start';
+            delete deployObj.startCommand;
           }
         }
         const updated = `${JSON.stringify(parsed, null, 2)}\n`;

@@ -10,6 +10,7 @@ import { redactSecrets } from '../utils/redactor';
 import { TerminalStyler } from '../utils/logger';
 import {
   isInteractiveTerminal,
+  PLATFORM_SELECTION_REQUIRED,
   PromptAdapter,
   resolveTargetPlatform,
   TerminalPromptAdapter,
@@ -53,6 +54,7 @@ export async function executeFixCommand(options: FixCommandOptions): Promise<Fix
       explicitPlatform: options.platform,
       inferredPlatforms: manifest.inferredPlatforms,
       primaryFramework: manifest.primaryFramework,
+      detectedFrameworks: manifest.detectedFrameworks,
     });
   } catch (err) {
     return {
@@ -64,7 +66,16 @@ export async function executeFixCommand(options: FixCommandOptions): Promise<Fix
   }
 
   if (!platform) {
-    platform = 'vercel';
+    if (!isInteractiveTerminal(options.nonInteractive)) {
+      return {
+        exitCode: 2,
+        output: PLATFORM_SELECTION_REQUIRED,
+        appliedResults: [],
+        remainingFindingsCount: 0,
+      };
+    }
+    const prompter = options.promptAdapter ?? new TerminalPromptAdapter();
+    platform = await prompter.selectPlatform();
   }
 
   const engine = new RuleEngine(getAllRules());

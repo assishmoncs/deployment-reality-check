@@ -8,18 +8,20 @@ import { redactSecrets } from '../utils/redactor';
 import { TerminalStyler } from '../utils/logger';
 import {
   isInteractiveTerminal,
+  PLATFORM_SELECTION_REQUIRED,
   PromptAdapter,
   resolveTargetPlatform,
   TerminalPromptAdapter,
 } from '../utils/prompts';
 import { runProductionBuildCheck } from '../verification/build-runner';
-import { runControlledStartupCheck } from '../verification/startup-check';
+import { isValidHealthPath, runControlledStartupCheck } from '../verification/startup-check';
 
 export interface VerifyCommandOptions {
   targetDir: string;
   platform?: string;
   build?: boolean;
   startup?: boolean;
+  healthPath?: string;
   noExec?: boolean;
   allowExec?: boolean;
   noColor?: boolean;
@@ -39,6 +41,17 @@ export async function executeVerifyCommand(
   const s = new TerminalStyler({ noColor: options.noColor });
   const resolvedPath = path.resolve(options.targetDir || '.');
 
+  if (
+    options.healthPath !== undefined &&
+    (!options.startup || !isValidHealthPath(options.healthPath))
+  ) {
+    return {
+      exitCode: 2,
+      output: 'Error: --health-path requires --startup and a local path such as /health.',
+      ready: false,
+    };
+  }
+
   if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isDirectory()) {
     return {
       exitCode: 2,
@@ -54,6 +67,7 @@ export async function executeVerifyCommand(
       explicitPlatform: options.platform,
       inferredPlatforms: manifest.inferredPlatforms,
       primaryFramework: manifest.primaryFramework,
+      detectedFrameworks: manifest.detectedFrameworks,
     });
   } catch (err) {
     return {
@@ -64,7 +78,11 @@ export async function executeVerifyCommand(
   }
 
   if (!platform) {
-    platform = 'vercel';
+    if (!isInteractiveTerminal(options.nonInteractive)) {
+      return { exitCode: 2, output: PLATFORM_SELECTION_REQUIRED, ready: false };
+    }
+    const prompter = options.promptAdapter ?? new TerminalPromptAdapter();
+    platform = await prompter.selectPlatform();
   }
 
   const engine = new RuleEngine(getAllRules());
@@ -150,6 +168,7 @@ export async function executeVerifyCommand(
 
     const startupReport = await runControlledStartupCheck({
       rootDir: resolvedPath,
+      healthPath: options.healthPath,
       packageManager: manifest.primaryPackageManager,
       allowExec: permitted,
     });

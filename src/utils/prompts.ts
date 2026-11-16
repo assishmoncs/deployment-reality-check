@@ -1,6 +1,9 @@
 import * as readline from 'readline';
 import { PlatformId } from '../core/finding';
 
+export const PLATFORM_SELECTION_REQUIRED =
+  'Error: Deployment platform is ambiguous or unknown. Use --platform vercel or --platform railway.';
+
 export interface PromptAdapter {
   selectPlatform(): Promise<PlatformId>;
   confirmAction(message: string, defaultYes?: boolean): Promise<boolean>;
@@ -58,6 +61,7 @@ export function resolveTargetPlatform(params: {
   explicitPlatform?: string;
   inferredPlatforms: PlatformId[];
   primaryFramework: string;
+  detectedFrameworks?: string[];
 }): PlatformId | null {
   if (params.explicitPlatform) {
     const norm = params.explicitPlatform.trim().toLowerCase();
@@ -69,9 +73,17 @@ export function resolveTargetPlatform(params: {
     );
   }
 
+  if (params.inferredPlatforms.length > 1) return null;
   if (params.inferredPlatforms.length === 1) {
     return params.inferredPlatforms[0]!;
   }
+
+  const frameworks = params.detectedFrameworks ?? [];
+  if (
+    frameworks.includes('express') &&
+    frameworks.some((framework) => framework === 'nextjs' || framework === 'react-vite')
+  )
+    return null;
 
   if (params.primaryFramework === 'nextjs' || params.primaryFramework === 'react-vite') {
     return 'vercel';

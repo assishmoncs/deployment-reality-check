@@ -18,14 +18,14 @@ export const drc005PortHostBindingRule: DeploymentRule = {
     whyItHappens:
       'Locally, binding to a fixed port like 3000 or localhost works because you connect from the same machine. Cloud container platforms dynamically assign a PORT via environment variable and route traffic from an external proxy.',
     deploymentImpact:
-      'On Railway, binding to a hardcoded port or 127.0.0.1 prevents the load balancer from reaching your container, causing health checks to fail and return 502 Bad Gateway. On Vercel, unconditional app.listen() without exporting the Express app is incompatible with serverless invocation.',
+      'On Railway, binding to a hardcoded port or 127.0.0.1 prevents the load balancer from reaching your container, causing health checks to fail and return 502 Bad Gateway. On Vercel, confirm the listener is in a supported Express entry point or export a request handler.',
     whenItApplies:
-      'Applies when an Express/Node server calls .listen() with a hardcoded port, binds to 127.0.0.1/localhost on Railway, or calls unconditional .listen() without exporting the handler on Vercel.',
+      'Applies when an Express/Node server calls .listen() with a hardcoded port, binds to 127.0.0.1/localhost on Railway, or a listener on Vercel does not have a recognized entry point, export or guard.',
     howToResolve:
       'Use `process.env.PORT || 3000` and bind to `0.0.0.0` (or omit the host argument so Node binds to all interfaces). For Vercel, export the Express app as default/module.exports.',
     PlatformNotes: {
       vercel:
-        'Vercel invokes exported request handlers directly; guard app.listen() with `if (process.env.NODE_ENV !== "production")` or export the Express instance.',
+        'Vercel supports a default Express app export or an Express port listener in a supported entry point.',
       railway:
         'Railway injects `process.env.PORT` at runtime and routes traffic over the container network interface (`0.0.0.0`).',
     },
@@ -92,8 +92,11 @@ export const drc005PortHostBindingRule: DeploymentRule = {
           });
         }
       } else if (platform === 'vercel') {
-        // Do not flag Express app if its platform-specific startup handling is valid (exports app and guards listen, or exports app)
-        if (!call.exportsServerlessApp && !call.isConditionalServerlessGuard) {
+        if (
+          !call.isVercelExpressEntrypoint &&
+          !call.exportsServerlessApp &&
+          !call.isConditionalServerlessGuard
+        ) {
           findings.push({
             ruleId: 'DRC005',
             title: 'Unconditional app.listen() without serverless export on Vercel',
@@ -101,7 +104,7 @@ export const drc005PortHostBindingRule: DeploymentRule = {
             confidence: 'medium',
             platform,
             category: 'networking',
-            message: `Server in ${call.file}:${call.line} calls unconditional .listen() without exporting the request handler for Vercel Functions.`,
+            message: `Server in ${call.file}:${call.line} calls unconditional .listen() without a recognized Express entry point or exported handler.`,
             whyItHappens: this.definition.whyItHappens,
             deploymentImpact: this.definition.deploymentImpact,
             evidence: `Unconditional .listen() in ${call.file}:${call.line} with no default/module export`,

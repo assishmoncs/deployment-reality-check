@@ -1,3 +1,4 @@
+import { parse, TomlError } from 'smol-toml';
 import * as path from 'path';
 import { DeploymentConfigFacts, EnvFilesFacts } from '../core/project-manifest';
 import { PlatformId } from '../core/finding';
@@ -25,60 +26,17 @@ export function parseSimpleToml(content: string): {
   data?: Record<string, unknown>;
   error?: string;
 } {
-  const result: Record<string, unknown> = {};
-  let currentSection: Record<string, unknown> = result;
-  const lines = content.split(/\r?\n/);
-
-  for (let i = 0; i < lines.length; i++) {
-    const rawLine = lines[i] ?? '';
-    const line = rawLine.replace(/#.*$/, '').trim();
-    if (!line) continue;
-
-    if (line.startsWith('[')) {
-      if (!line.endsWith(']')) {
-        return { error: `Invalid TOML section header at line ${i + 1}: ${rawLine}` };
-      }
-      const sectionName = line.slice(1, -1).trim();
-      if (!sectionName) {
-        return { error: `Empty TOML section header at line ${i + 1}` };
-      }
-      const parts = sectionName.split('.');
-      let cursor = result;
-      for (const part of parts) {
-        if (typeof cursor[part] !== 'object' || cursor[part] === null) {
-          cursor[part] = {};
-        }
-        cursor = cursor[part] as Record<string, unknown>;
-      }
-      currentSection = cursor;
-      continue;
-    }
-
-    const eqIdx = line.indexOf('=');
-    if (eqIdx === -1) {
-      return { error: `Invalid TOML key-value assignment at line ${i + 1}: ${rawLine}` };
-    }
-    const key = line.slice(0, eqIdx).trim();
-    let valRaw = line.slice(eqIdx + 1).trim();
-    if (!key) {
-      return { error: `Empty TOML key at line ${i + 1}` };
-    }
-    if (
-      (valRaw.startsWith('"') && valRaw.endsWith('"')) ||
-      (valRaw.startsWith("'") && valRaw.endsWith("'"))
-    ) {
-      valRaw = valRaw.slice(1, -1);
-      currentSection[key] = valRaw;
-    } else if (valRaw === 'true' || valRaw === 'false') {
-      currentSection[key] = valRaw === 'true';
-    } else if (!Number.isNaN(Number(valRaw))) {
-      currentSection[key] = Number(valRaw);
-    } else {
-      currentSection[key] = valRaw;
-    }
+  try {
+    return { data: parse(content) };
+  } catch (error) {
+    // Parser messages can include the source line and any values on it.
+    return {
+      error:
+        error instanceof TomlError
+          ? `Invalid TOML at line ${error.line}, column ${error.column}`
+          : 'Unable to parse TOML',
+    };
   }
-
-  return { data: result };
 }
 
 export function discoverDeploymentConfigs(
@@ -124,7 +82,7 @@ export function discoverDeploymentConfigs(
       configFacts.vercelJsonPath = file;
       inferredPlatforms.add('vercel');
       const readRes = readTextFileSafe(rootDir, file);
-      if (readRes.content) {
+      if (readRes.content !== null) {
         const validated = validateJsonSafe(readRes.content, file);
         if (validated.success && validated.data) {
           configFacts.vercelJsonRaw = validated.data;
@@ -140,7 +98,7 @@ export function discoverDeploymentConfigs(
       configFacts.railwayJsonPath = file;
       inferredPlatforms.add('railway');
       const readRes = readTextFileSafe(rootDir, file);
-      if (readRes.content) {
+      if (readRes.content !== null) {
         const validated = validateJsonSafe(readRes.content, file);
         if (validated.success && validated.data) {
           configFacts.railwayJsonRaw = validated.data;

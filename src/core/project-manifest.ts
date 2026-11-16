@@ -55,6 +55,7 @@ export interface ListenCallFact {
   hostAddress?: string;
   isConditionalServerlessGuard: boolean;
   exportsServerlessApp: boolean;
+  isVercelExpressEntrypoint?: boolean;
 }
 
 export interface CorsUsageFact {

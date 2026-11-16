@@ -9,6 +9,7 @@ import { renderSarifScanReport } from '../reporting/sarif';
 import { renderTerminalScanReport } from '../reporting/terminal';
 import {
   isInteractiveTerminal,
+  PLATFORM_SELECTION_REQUIRED,
   PromptAdapter,
   resolveTargetPlatform,
   TerminalPromptAdapter,
@@ -79,6 +80,7 @@ export async function executeScanCommand(options: ScanCommandOptions): Promise<S
       explicitPlatform: options.platform,
       inferredPlatforms: manifest.inferredPlatforms,
       primaryFramework: manifest.primaryFramework,
+      detectedFrameworks: manifest.detectedFrameworks,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -96,8 +98,7 @@ export async function executeScanCommand(options: ScanCommandOptions): Promise<S
     } else {
       return {
         exitCode: 2,
-        output:
-          'Error: Could not automatically detect the deployment platform for this project.\nPlease specify a target platform explicitly using `--platform vercel` or `--platform railway`.',
+        output: PLATFORM_SELECTION_REQUIRED,
         findings: [],
       };
     }

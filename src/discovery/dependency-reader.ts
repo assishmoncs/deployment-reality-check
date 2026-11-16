@@ -16,23 +16,26 @@ export function discoverDependencies(
   rootDir: string,
   allFiles: string[],
 ): DependencyDiscoveryResult {
+  const managersByLockfile = new Map<string, PackageManagerType>([
+    ['package-lock.json', 'npm'],
+    ['npm-shrinkwrap.json', 'npm'],
+    ['yarn.lock', 'yarn'],
+    ['pnpm-lock.yaml', 'pnpm'],
+    ['bun.lockb', 'bun'],
+    ['bun.lock', 'bun'],
+  ]);
   const packageManagers = new Set<PackageManagerType>();
+  let rootLockManager: PackageManagerType | undefined;
+  let declaredRootManager: PackageManagerType | undefined;
 
   for (const file of allFiles) {
     const base = path.posix.basename(file);
-    if (base === 'package-lock.json' || base === 'npm-shrinkwrap.json') {
-      packageManagers.add('npm');
-    } else if (base === 'yarn.lock') {
-      packageManagers.add('yarn');
-    } else if (base === 'pnpm-lock.yaml') {
-      packageManagers.add('pnpm');
-    } else if (base === 'bun.lockb' || base === 'bun.lock') {
-      packageManagers.add('bun');
+    const manager = managersByLockfile.get(base);
+    if (manager) {
+      packageManagers.add(manager);
+      if (file === base) rootLockManager ??= manager;
     }
   }
-
-  const pmArray = Array.from(packageManagers);
-  const primaryPackageManager: PackageManagerType = pmArray[0] ?? 'npm';
 
   const packageJsonFiles = allFiles.filter(
     (f) => f === 'package.json' || f.endsWith('/package.json'),
@@ -44,7 +47,7 @@ export function discoverDependencies(
 
   for (const pkgFile of packageJsonFiles) {
     const readRes = readTextFileSafe(rootDir, pkgFile);
-    if (!readRes.content) continue;
+    if (readRes.content === null) continue;
 
     const validated = validateJsonSafe(readRes.content, pkgFile);
     if (!validated.success || !validated.data) {
@@ -108,13 +111,18 @@ export function discoverDependencies(
 
     if (pkgFile === 'package.json') {
       rootPackageJson = info;
+      if (typeof data.packageManager === 'string') {
+        const declared = /^(npm|yarn|pnpm|bun)@[^\s]+$/.exec(data.packageManager);
+        declaredRootManager = declared?.[1] as PackageManagerType | undefined;
+        if (declaredRootManager) packageManagers.add(declaredRootManager);
+      }
     }
     services.push(info);
   }
 
   return {
-    packageManagers: pmArray.length > 0 ? pmArray : ['unknown'],
-    primaryPackageManager,
+    packageManagers: packageManagers.size > 0 ? Array.from(packageManagers) : ['unknown'],
+    primaryPackageManager: declaredRootManager ?? rootLockManager ?? 'npm',
     rootPackageJson,
     services,
     parseErrors,
