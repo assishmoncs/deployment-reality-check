@@ -13,9 +13,9 @@ describe('Beta deployment checks', () => {
     project = fs.mkdtempSync(path.join(os.tmpdir(), 'drc-beta-'));
   });
 
-  afterEach(() => {
-    fs.rmSync(project, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-  });
+  afterEach(async () => {
+    await fs.promises.rm(project, { recursive: true, force: true, maxRetries: 7, retryDelay: 250 });
+  }, 10000);
 
   function write(file: string, content: string) {
     const fullPath = path.join(project, file);
@@ -99,7 +99,13 @@ describe('Beta deployment checks', () => {
     write('package.json', '{"scripts":{"start":"node server.js"}}');
     write(
       'server.js',
-      `require('node:http').createServer((req, res) => {
+      `process.on('SIGTERM', () => {
+        setTimeout(() => {
+          require('node:fs').writeFileSync('shutdown-complete', '');
+          process.exit(0);
+        }, 100);
+      });
+      require('node:http').createServer((req, res) => {
         res.statusCode = req.url === '/health?ready=1' ? 204 : 404;
         res.end();
       }).listen(Number(process.env.PORT));`,
@@ -119,6 +125,9 @@ describe('Beta deployment checks', () => {
     );
     expect(result.code).toBe(0);
     expect(result.output).toContain('Controlled startup health check succeeded');
+    if (process.platform !== 'win32') {
+      expect(fs.existsSync(path.join(project, 'shutdown-complete'))).toBe(true);
+    }
   });
 
   it('accepts native Vercel Express listeners in entry files and still flags fixed ports on Railway', async () => {

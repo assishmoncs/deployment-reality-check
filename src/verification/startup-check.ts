@@ -100,6 +100,8 @@ export async function runControlledStartupCheck(
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
+    const childClosed = new Promise<void>((resolveClosed) => child.once('close', resolveClosed));
+
     if (child.stdout) {
       child.stdout.on('data', (d: Buffer) => {
         if (logs.length < 16384) logs += d.toString('utf8');
@@ -118,7 +120,26 @@ export async function runControlledStartupCheck(
       clearInterval(probeInterval);
       clearTimeout(timer);
       request?.destroy();
-      await terminateProcessTree(child);
+      // The termination command can finish before the child and its stdio close.
+      let cleanupTimer: NodeJS.Timeout | undefined;
+      const cleanupDeadline = new Promise<boolean>((done) => {
+        cleanupTimer = setTimeout(() => done(false), 3000);
+      });
+      const cleanedUp = await Promise.race([
+        Promise.all([terminateProcessTree(child), childClosed]).then(() => true),
+        cleanupDeadline,
+      ]);
+      clearTimeout(cleanupTimer);
+      if (!cleanedUp) {
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+        child.unref();
+        report = {
+          ...report,
+          success: false,
+          failureReason: 'Timed out cleaning up the start script.',
+        };
+      }
       resolve({ executed: true, ...report, logs: redactSecrets(logs) });
     };
 
