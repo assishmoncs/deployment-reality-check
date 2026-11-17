@@ -11,6 +11,7 @@ export interface StartupCheckOptions {
   allowExec: boolean;
   port?: number;
   timeoutMs?: number;
+  healthPath?: string;
 }
 
 export interface StartupCheckReport {
@@ -33,6 +34,10 @@ function selectProbePort(port = 0): Promise<number> {
   });
 }
 
+export function isValidHealthPath(value: string): boolean {
+  return value.startsWith('/') && !value.startsWith('//') && !/[\\#]|[^!-~]/.test(value);
+}
+
 export async function runControlledStartupCheck(
   options: StartupCheckOptions,
 ): Promise<StartupCheckReport> {
@@ -42,6 +47,16 @@ export async function runControlledStartupCheck(
       skippedReason: 'Startup health check skipped (requires explicit --allow-exec permission).',
       success: true,
       logs: '',
+    };
+  }
+
+  const healthPath = options.healthPath ?? '/';
+  if (!isValidHealthPath(healthPath)) {
+    return {
+      executed: false,
+      success: false,
+      logs: '',
+      failureReason: 'Health path must be a local HTTP path such as /health.',
     };
   }
 
@@ -85,6 +100,8 @@ export async function runControlledStartupCheck(
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
+    const childClosed = new Promise<void>((resolveClosed) => child.once('close', resolveClosed));
+
     if (child.stdout) {
       child.stdout.on('data', (d: Buffer) => {
         if (logs.length < 16384) logs += d.toString('utf8');
@@ -103,7 +120,26 @@ export async function runControlledStartupCheck(
       clearInterval(probeInterval);
       clearTimeout(timer);
       request?.destroy();
-      await terminateProcessTree(child);
+      // The termination command can finish before the child and its stdio close.
+      let cleanupTimer: NodeJS.Timeout | undefined;
+      const cleanupDeadline = new Promise<boolean>((done) => {
+        cleanupTimer = setTimeout(() => done(false), 3000);
+      });
+      const cleanedUp = await Promise.race([
+        Promise.all([terminateProcessTree(child), childClosed]).then(() => true),
+        cleanupDeadline,
+      ]);
+      clearTimeout(cleanupTimer);
+      if (!cleanedUp) {
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+        child.unref();
+        report = {
+          ...report,
+          success: false,
+          failureReason: 'Timed out cleaning up the start script.',
+        };
+      }
       resolve({ executed: true, ...report, logs: redactSecrets(logs) });
     };
 
@@ -116,14 +152,14 @@ export async function runControlledStartupCheck(
 
     const probeInterval = setInterval(() => {
       if (request) return;
-      const probe = http.get(`http://127.0.0.1:${port}/`, (res) => {
+      const probe = http.get({ hostname: '127.0.0.1', port, path: healthPath }, (res) => {
         res.resume();
         const status = res.statusCode ?? 0;
         const success = status >= 200 && status < 400;
         void finish({
           success,
           httpStatus: res.statusCode,
-          failureReason: success ? undefined : `GET / returned HTTP ${status}.`,
+          failureReason: success ? undefined : `Health endpoint returned HTTP ${status}.`,
         });
       });
       request = probe;

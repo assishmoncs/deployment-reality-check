@@ -17,7 +17,7 @@ const babelParser = require('@babel/parser');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const babelTraverse = require('@babel/traverse').default || require('@babel/traverse');
 
-const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
+const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts']);
 
 interface AstPosition {
   line: number;
@@ -42,12 +42,14 @@ interface AstNode {
   properties?: AstNode[];
   key?: AstNode;
   init?: AstNode | null;
+  source?: AstNode;
   quasis?: Array<{ value: { raw: string } }>;
 }
 
 interface AstBinding {
   path: {
     node: AstNode;
+    parent?: AstNode;
   };
 }
 
@@ -60,6 +62,21 @@ interface AstNodePath {
   isCallExpression(): boolean;
   isIfStatement(): boolean;
   findParent(predicate: (ancestor: AstNodePath) => boolean): AstNodePath | null;
+}
+
+function isExpressApp(receiver: AstNode | undefined, call: AstNodePath): boolean {
+  const app = receiver?.name ? call.scope.getBinding(receiver.name)?.path.node.init : undefined;
+  const factoryName = app?.type === 'CallExpression' ? app.callee?.name : undefined;
+  const factory = factoryName ? call.scope.getBinding(factoryName)?.path : undefined;
+  if (factory?.node.type === 'ImportDefaultSpecifier') {
+    return factory.parent?.source?.value === 'express';
+  }
+  const init = factory?.node.init;
+  return (
+    init?.type === 'CallExpression' &&
+    init.callee?.name === 'require' &&
+    init.arguments?.[0]?.value === 'express'
+  );
 }
 
 export function isTestFilePath(filePath: string): boolean {
@@ -269,6 +286,16 @@ export function analyzeSourceFiles(
     if (!readRes.content) continue;
     const code = readRes.content;
     const isTest = isTestFilePath(file);
+    const serviceDir = services.reduce((closest, service) => {
+      const relative = service.relativePath;
+      return file.startsWith(`${relative}/`) && relative.length > closest.length
+        ? relative
+        : closest;
+    }, '');
+    const serviceFile = serviceDir ? file.slice(serviceDir.length + 1) : file;
+    const vercelEntrypoint = /^(?:src\/)?(?:app|index|server)\.(?:js|cjs|mjs|ts|cts|mts)$/.test(
+      serviceFile,
+    );
     const isClient = isClientSideFile(file, code, services);
 
     let ast: unknown;
@@ -478,6 +505,7 @@ export function analyzeSourceFiles(
         const callArgs = node.arguments ?? [];
 
         if (
+          !isTest &&
           node.callee?.type === 'MemberExpression' &&
           node.callee.property?.type === 'Identifier' &&
           node.callee.property.name === 'listen' &&
@@ -534,6 +562,7 @@ export function analyzeSourceFiles(
             hostAddress,
             isConditionalServerlessGuard,
             exportsServerlessApp: fileExportsServerlessHandler,
+            isVercelExpressEntrypoint: vercelEntrypoint && isExpressApp(node.callee.object, p),
           });
         }
 

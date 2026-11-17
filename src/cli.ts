@@ -79,7 +79,8 @@ Re-run static analysis, validate configuration, and optionally test production b
 Options:
   -p, --platform <vercel|railway>           Target deployment platform
   --build                                   Run production build check (requires --allow-exec in non-interactive mode)
-  --startup                                 Run controlled startup port check (requires --allow-exec)
+  --startup                                 Run controlled startup health check
+  --health-path <path>                      HTTP path for --startup (default: /)
   --allow-exec                              Explicitly permit executing project build/start scripts
   --no-exec                                 Strictly forbid executing any child processes
   --non-interactive                         Run without interactive prompts
@@ -136,6 +137,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
   const flags: Record<string, string | boolean> = {};
 
   const valueFlags = new Set(['platform', 'format', 'fail-on']);
+  if (command === 'verify') valueFlags.add('health-path');
   const booleanFlags = new Set([
     'no-color',
     'non-interactive',
@@ -269,6 +271,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
       platform: platformFlag,
       build: Boolean(flags.build),
       startup: Boolean(flags.startup),
+      healthPath: typeof flags['health-path'] === 'string' ? flags['health-path'] : undefined,
       noExec: Boolean(flags['no-exec']),
       allowExec: Boolean(flags['allow-exec']),
       noColor,

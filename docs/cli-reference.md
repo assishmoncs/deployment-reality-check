@@ -16,6 +16,8 @@
 | `1`       | Scan met the failure threshold, a patch failed to apply, or verification failed    |
 | `2`       | Usage error, invalid CLI option, invalid target directory, or unsupported platform |
 
+For scan, fix, and verify, specify `--platform` in non-interactive runs when the target is ambiguous or unknown.
+
 ## `drc scan [path]`
 
 Scans a project directory (defaults to `.`) in read-only mode. Syntax errors are reported in every format and return exit code `1` unless `--fail-on none` is set.
@@ -57,11 +59,12 @@ drc fix ./my-app --platform railway --yes
 
 ## `drc verify [path]`
 
-Re-runs static analysis and configuration validation, and optionally performs opt-in production build (`--build`) or controlled startup health checks (`--startup`). Verification passes when every requested check passes. The startup probe expects an HTTP 2xx or 3xx response from `GET /`. Use `--no-exec` on its own for static verification.
+Re-runs static analysis and configuration validation, and optionally performs opt-in production build (`--build`) or controlled startup health checks (`--startup`). Verification passes when every requested check passes. The startup probe expects an HTTP 2xx or 3xx response. It defaults to `GET /`, and `--health-path /health` selects a different local endpoint. Build and startup commands use the target root’s declared package manager, then its lockfile, with npm as the fallback. Use `--no-exec` on its own for static verification.
 
 ```bash
 drc verify
 drc verify --platform vercel
 drc verify --build --allow-exec
+drc verify --startup --health-path /health --allow-exec
 drc verify --no-exec
 ```

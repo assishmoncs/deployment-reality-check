@@ -173,7 +173,7 @@ describe('Deployment checkup regressions', () => {
     expect(fs.readFileSync(path.join(project, 'vercel.json'), 'utf8')).toBe(vercelConfig);
     expect(
       JSON.parse(fs.readFileSync(path.join(project, 'railway.json'), 'utf8')).deploy.startCommand,
-    ).toBe('npm run start');
+    ).toBeUndefined();
     write('vercel.json', '{invalid');
     expect((await invoke('verify')).code).toBe(0);
   });
