@@ -89,7 +89,7 @@ export function isTestFilePath(filePath: string): boolean {
     normalized.startsWith('test/') ||
     normalized.includes('/tests/') ||
     normalized.includes('/test/') ||
-    normalized.endsWith('vitest.config.ts') ||
+    /(?:^|\/)vitest\.config\.[cm]?[jt]s$/.test(normalized) ||
     normalized.endsWith('jest.config.js') ||
     normalized.endsWith('jest.config.ts')
   );
@@ -363,6 +363,7 @@ export function analyzeSourceFiles(
 
           envUsages.push({
             name: varName,
+            source: 'process.env',
             file,
             line: loc.line,
             column: loc.column + 1,
@@ -391,6 +392,7 @@ export function analyzeSourceFiles(
 
           envUsages.push({
             name: varName,
+            source: 'import.meta.env',
             file,
             line: loc.line,
             column: loc.column + 1,

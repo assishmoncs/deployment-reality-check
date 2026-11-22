@@ -144,9 +144,12 @@ export async function executeVerifyCommand(
         `${s.green('✓')} Production build check succeeded (${buildReport.result?.durationMs ?? 0}ms)`,
       );
     } else {
-      lines.push(`${s.red('✗')} Production build check failed`);
-      if (buildReport.result?.stderr) {
-        lines.push(`  ${buildReport.result.stderr.trim()}`);
+      const result = buildReport.result;
+      lines.push(
+        `${s.red('✗')} Production build check ${result?.timedOut ? 'timed out' : 'failed'}`,
+      );
+      for (const log of [result?.stdout, result?.stderr]) {
+        if (log?.trim()) lines.push(`  ${log.trim()}`);
       }
     }
   } else if (options.noExec) {

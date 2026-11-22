@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { redactSecrets } from '../utils/redactor';
+import { resolveProcessCommand } from '../utils/process-command';
 import { terminateProcessTree } from '../utils/process-tree';
 
 export interface BoundedProcessOptions {
@@ -39,25 +40,16 @@ export async function runBoundedProcess(
     let timedOut = false;
     let settled = false;
 
-    // Windows cannot spawn .cmd shims directly. Only allow the shell for the
-    // known package-manager script commands used by the build/start verifiers;
-    // their command and arguments are selected from fixed allowlists.
-    const isWindowsPackageManagerScript =
-      process.platform === 'win32' &&
-      /^(?:npm|yarn|pnpm)\.cmd$/i.test(options.command) &&
-      options.args.length === 2 &&
-      options.args[0] === 'run' &&
-      (options.args[1] === 'build' || options.args[1] === 'start');
-
-    const child = spawn(options.command, options.args, {
+    const invocation = resolveProcessCommand(options.command, options.args);
+    const child = spawn(invocation.command, invocation.args, {
       cwd: options.cwd,
       env: {
         ...process.env,
         ...options.env,
         CI: 'true',
       },
-      shell: isWindowsPackageManagerScript,
       detached: process.platform !== 'win32',
+      windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -85,16 +77,24 @@ export async function runBoundedProcess(
     }
 
     let termination: Promise<void> | undefined;
+    let cleanupTimer: NodeJS.Timeout | undefined;
     const timer = setTimeout(() => {
       timedOut = true;
       termination = terminateProcessTree(child);
+      // A descendant can keep the pipes open after the original process exits.
+      cleanupTimer = setTimeout(() => {
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+        child.unref();
+        finish(null);
+      }, 3000);
     }, timeoutMs);
 
-    const finish = async (code: number | null) => {
+    const finish = (code: number | null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      if (termination) await termination;
+      clearTimeout(cleanupTimer);
       resolve({
         exitCode: code,
         timedOut,
@@ -109,7 +109,8 @@ export async function runBoundedProcess(
       finish(1);
     });
 
-    child.on('close', (code) => {
+    child.on('close', async (code) => {
+      if (termination) await termination;
       finish(code);
     });
   });

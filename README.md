@@ -186,6 +186,8 @@ DRC categorizes every remediation into three explicit safety tiers:
 
 ## 13. Local Development Instructions
 
+The development toolchain requires Node.js 20.19+ on the 20.x line, 22.12+ on the 22.x line, or 24 and later. The installed CLI supports Node.js 18 and later.
+
 ```bash
 cd deployment-reality-check
 npm ci

@@ -85,4 +85,3 @@ cleanDir(distDir);
 if (!tryTsc()) {
   compileWithBabel();
 }
-console.log('Build completed successfully -> dist/');

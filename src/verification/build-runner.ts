@@ -1,4 +1,5 @@
 import { PackageManagerType } from '../core/project-manifest';
+import { packageManagerCommand } from '../utils/process-command';
 import { BoundedProcessResult, runBoundedProcess } from './process-manager';
 
 export interface BuildVerificationOptions {
@@ -27,19 +28,9 @@ export async function runProductionBuildCheck(
     };
   }
 
-  const bin =
-    options.packageManager === 'yarn'
-      ? 'yarn'
-      : options.packageManager === 'pnpm'
-        ? 'pnpm'
-        : options.packageManager === 'bun'
-          ? 'bun'
-          : 'npm';
-
-  const execBin = process.platform === 'win32' && bin !== 'bun' ? `${bin}.cmd` : bin;
   const result = await runBoundedProcess({
     cwd: options.rootDir,
-    command: execBin,
+    command: packageManagerCommand(options.packageManager),
     args: ['run', 'build'],
     timeoutMs: options.timeoutMs ?? 60000,
   });

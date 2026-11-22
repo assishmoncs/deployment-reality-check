@@ -14,7 +14,7 @@ function replaceOnTargetLine(
   content: string,
   targetLine: number | undefined,
   matcher: RegExp,
-  replacer: string,
+  replacer: (match: string) => string,
 ): string {
   if (!targetLine || targetLine < 1) {
     return content.replace(matcher, replacer);
@@ -25,7 +25,14 @@ function replaceOnTargetLine(
     lines[idx] = lines[idx]!.replace(matcher, replacer);
     return lines.join('\n');
   }
-  return content.replace(matcher, replacer);
+  return content;
+}
+
+function nodeStartCommand(entry: string): string {
+  if (entry.startsWith('-') || /["$`%!\r\n]/.test(entry)) {
+    throw new Error('Express entry file requires manual command quoting');
+  }
+  return `node ${JSON.stringify(entry.replace(/\\/g, '/'))}`;
 }
 
 function createUnifiedDiff(filePath: string, oldText: string, newText: string): string {
@@ -195,19 +202,35 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
             scripts.build = 'tsc';
           }
           if (!scripts.start) {
-            const entry = svc.main ?? (svc.hasTypeScript ? 'dist/index.js' : 'index.js');
-            scripts.start = `node ${entry}`;
+            const prefix = svc.relativePath === '.' ? '' : `${svc.relativePath}/`;
+            const entry =
+              svc.main ??
+              (svc.hasTypeScript
+                ? 'dist/index.js'
+                : [
+                    'index.js',
+                    'server.js',
+                    'app.js',
+                    'src/index.js',
+                    'src/server.js',
+                    'src/app.js',
+                  ].find((file) => manifest.filesScanned.includes(`${prefix}${file}`)));
+            if (!entry) throw new Error('No known Express entry file');
+            scripts.start = nodeStartCommand(entry);
           } else if (
             finding.fix.safety === 'approval-required' &&
             /\b(nodemon|ts-node-dev)\b/.test(scripts.start)
           ) {
-            if (!scripts.dev) {
-              scripts.dev = scripts.start;
-            }
-            scripts.start = scripts.start
-              .replace(/\b(nodemon|ts-node-dev)\b/, 'node')
-              .replace(/\.ts\b/, '.js')
-              .replace(/\bsrc\//, 'dist/');
+            const command = /^(?:nodemon|ts-node-dev)\s+(?:"([^"]+)"|'([^']+)'|([^\s"']+))/.exec(
+              scripts.start,
+            );
+            const entry = command?.[1] ?? command?.[2] ?? command?.[3];
+            if (!command || !entry) throw new Error('Complex Express watcher command');
+            const builtEntry = entry.endsWith('.ts')
+              ? entry.replace(/^(\.\/)?src\//, '$1dist/').replace(/\.ts$/, '.js')
+              : entry;
+            scripts.dev ||= scripts.start;
+            scripts.start = `${nodeStartCommand(builtEntry)}${scripts.start.slice(command[0].length)}`;
           }
         }
 
@@ -265,7 +288,7 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
             state.current,
             finding.line,
             pattern,
-            `(${envExpr} || '${usage.urlOrHost}')`,
+            (literal) => `(${envExpr} || ${literal})`,
           );
           if (updated !== prevContent) {
             state.current = updated;
@@ -339,7 +362,7 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
     if (finding.ruleId === 'DRC007' && finding.file) {
       const state = getFileState(finding.file);
       const usage = manifest.envUsages.find(
-        (u) => u.file === finding.file && u.line === finding.line,
+        (u) => u.file === finding.file && u.line === finding.line && u.column === finding.column,
       );
       if (usage) {
         const isVite =
@@ -352,17 +375,21 @@ export function generateFixPlan(manifest: ProjectManifest, findings: Finding[]):
         const cleanBase = usage.name.replace(/^(REACT_APP_|NEXT_PUBLIC_|VITE_)/, '');
         const newVar = isVite ? `VITE_${cleanBase}` : `NEXT_PUBLIC_${cleanBase}`;
         const prevContent = state.current;
-        const updated = prevContent
-          .replace(
-            `process.env.${usage.name}`,
-            isVite ? `import.meta.env.${newVar}` : `process.env.${newVar}`,
-          )
-          .replace(`import.meta.env.${usage.name}`, `import.meta.env.${newVar}`);
+        const source = usage.source
+          ? usage.source.replace(/\./g, '\\.')
+          : '(?:process\\.env|import\\.meta\\.env)';
+        const name = usage.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const updated = replaceOnTargetLine(
+          prevContent,
+          finding.line,
+          new RegExp(`\\b${source}\\.${name}(?![\\p{ID_Continue}$])`, 'u'),
+          () => (isVite ? `import.meta.env.${newVar}` : `process.env.${newVar}`),
+        );
 
         if (updated !== prevContent) {
           state.current = updated;
           patches.push({
-            id: `patch-${finding.ruleId}-${finding.file}-${finding.line ?? 1}`,
+            id: `patch-${finding.ruleId}-${finding.file}-${usage.line}-${usage.column}`,
             ruleId: finding.ruleId,
             title: finding.fix.description,
             targetFile: finding.file,

@@ -1,5 +1,6 @@
 import { Finding } from '../../core/finding';
 import { DeploymentRule, RuleEvaluationContext } from '../../core/rule-engine';
+import { isSensitiveEnvName } from '../../utils/redactor';
 
 export const drc007FrontendApiUrlRule: DeploymentRule = {
   definition: {
@@ -44,7 +45,7 @@ export const drc007FrontendApiUrlRule: DeploymentRule = {
       if (['NODE_ENV', 'MODE', 'DEV', 'PROD', 'SSR', 'BASE_URL'].includes(usage.name)) continue;
 
       // Skip sensitive secrets already caught by DRC006
-      if (/(SECRET|PRIVATE|SERVICE_ROLE|DATABASE_URL|PASSWORD|PASSWD)/i.test(usage.name)) {
+      if (isSensitiveEnvName(usage.name) || /PRIVATE/i.test(usage.name)) {
         continue;
       }
 
@@ -64,16 +65,16 @@ export const drc007FrontendApiUrlRule: DeploymentRule = {
             (s.relativePath === '.' || usage.file.startsWith(`${s.relativePath}/`)),
         );
 
-      if (isViteClient && !usage.name.startsWith('VITE_')) {
-        const suggestedName = `VITE_${usage.name.replace(/^(REACT_APP_|NEXT_PUBLIC_)/, '')}`;
+      if (isViteClient && (!usage.name.startsWith('VITE_') || usage.source === 'process.env')) {
+        const suggestedName = `VITE_${usage.name.replace(/^(REACT_APP_|NEXT_PUBLIC_|VITE_)/, '')}`;
         findings.push({
           ruleId: 'DRC007',
-          title: 'Unprefixed frontend environment variable in Vite client code',
+          title: 'Incorrect frontend environment variable access in Vite client code',
           severity: 'warning',
           confidence: 'high',
           platform,
           category: 'environment',
-          message: `Frontend file ${usage.file}:${usage.line} reads '${usage.name}', which does not have the required 'VITE_' prefix and will be undefined in the browser.`,
+          message: `Frontend file ${usage.file}:${usage.line} reads '${usage.name}'. Vite exposes client variables using import.meta.env with the 'VITE_' prefix.`,
           whyItHappens: this.definition.whyItHappens,
           deploymentImpact: this.definition.deploymentImpact,
           evidence: `Client env access '${usage.name}' in ${usage.file}:${usage.line}`,

@@ -8,7 +8,7 @@ coverage/
 .nyc_output/
 scripts/
 tsconfig.json
-vitest.config.ts
+vitest.config.mts
 .eslintrc.cjs
 .prettierrc.json
 *.tgz

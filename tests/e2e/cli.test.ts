@@ -63,6 +63,11 @@ describe('E2E CLI Dispatcher, Arguments, Exit Codes, and Bounded Subprocess Exec
     expect((await invokeCli(['scan', '--platform'])).code).toBe(2);
     expect((await invokeCli(['scan', '--unknown-flag'])).code).toBe(2);
     expect((await invokeCli(['scan', '-z'])).code).toBe(2);
+    expect((await invokeCli(['scan', '--build'])).code).toBe(2);
+    expect((await invokeCli(['scan', '-y'])).code).toBe(2);
+    expect((await invokeCli(['verify', '--dry-run'])).code).toBe(2);
+    expect((await invokeCli(['fix', '-f', 'json'])).code).toBe(2);
+    expect((await invokeCli(['explain', 'DRC001', 'DRC002'])).code).toBe(2);
     expect((await invokeCli(['scan', '.', '--format', 'xml'])).code).toBe(2);
     expect((await invokeCli(['scan', '.', '--fail-on', 'invalid'])).code).toBe(2);
     expect((await invokeCli(['scan', './non-existent-folder-xyz'])).code).toBe(2);
@@ -146,11 +151,10 @@ srv.listen(port, '127.0.0.1');
         rootDir: tmpProj,
         packageManager: 'npm',
         allowExec: true,
-        port: 45921,
         timeoutMs: 5000,
       });
       expect(sRes.executed).toBe(true);
-      expect(sRes.success).toBe(true);
+      expect(sRes.success, sRes.failureReason).toBe(true);
       expect(sRes.httpStatus).toBe(200);
 
       // 3. CLI verify with --build and --allow-exec
@@ -176,5 +180,22 @@ srv.listen(port, '127.0.0.1');
     } finally {
       fs.rmSync(tmpProj, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
+  });
+
+  it('bounds build cleanup even if a descendant keeps the output pipes open', async () => {
+    const result = await runBoundedProcess({
+      cwd: os.tmpdir(),
+      command: process.execPath,
+      args: [
+        '-e',
+        `const { spawn } = require('node:child_process');
+         spawn(process.execPath, ['-e', 'setTimeout(() => {}, 8000)'], {
+           detached: true, stdio: 'inherit', windowsHide: true,
+         }).unref();`,
+      ],
+      timeoutMs: 300,
+    });
+    expect(result.timedOut).toBe(true);
+    expect(result.durationMs).toBeLessThan(7000);
   });
 });

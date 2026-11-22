@@ -34,17 +34,18 @@ describe('Discovery Subsystem & Security Safeguards', () => {
   });
 
   it('blocks symbolic links pointing outside the project root', () => {
-    const outsideFile = path.join(os.tmpdir(), `drc-outside-${Date.now()}.txt`);
-    fs.writeFileSync(outsideFile, 'secret');
-    const symlinkPath = path.join(tmpDir, 'escape-link.txt');
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'drc-outside-'));
     try {
-      fs.symlinkSync(outsideFile, symlinkPath);
-      expect(() => assertSafeProjectPath(tmpDir, 'escape-link.txt')).toThrow('Security violation');
+      fs.writeFileSync(path.join(outsideDir, 'secret.txt'), 'secret');
+      fs.symlinkSync(outsideDir, path.join(tmpDir, 'escape-link'), 'junction');
+      expect(() => assertSafeProjectPath(tmpDir, 'escape-link/secret.txt')).toThrow(
+        'Security violation',
+      );
       const walked = walkProjectFiles(tmpDir);
-      expect(walked.files).not.toContain('escape-link.txt');
+      expect(walked.files).not.toContain('escape-link/secret.txt');
       expect(walked.skipped.some((s) => s.reason === 'symlink_escape_outside_root')).toBe(true);
     } finally {
-      fs.rmSync(outsideFile, { force: true });
+      fs.rmSync(outsideDir, { recursive: true, force: true });
     }
   });
 
@@ -52,7 +53,7 @@ describe('Discovery Subsystem & Security Safeguards', () => {
     const subDir = path.join(tmpDir, 'nested');
     fs.mkdirSync(subDir);
     const loopLink = path.join(subDir, 'loop');
-    fs.symlinkSync(tmpDir, loopLink);
+    fs.symlinkSync(tmpDir, loopLink, 'junction');
 
     const walked = walkProjectFiles(tmpDir);
     expect(walked.skipped.some((s) => s.reason === 'recursive_symlink_loop')).toBe(true);

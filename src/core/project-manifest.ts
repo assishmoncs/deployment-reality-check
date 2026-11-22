@@ -17,6 +17,7 @@ export interface ServicePackageInfo {
 
 export interface EnvVarUsageFact {
   name: string;
+  source?: 'process.env' | 'import.meta.env';
   file: string;
   line: number;
   column: number;

@@ -3,6 +3,7 @@ import * as http from 'http';
 import * as net from 'net';
 import { PackageManagerType } from '../core/project-manifest';
 import { redactSecrets } from '../utils/redactor';
+import { packageManagerCommand, resolveProcessCommand } from '../utils/process-command';
 import { terminateProcessTree } from '../utils/process-tree';
 
 export interface StartupCheckOptions {
@@ -68,35 +69,24 @@ export async function runControlledStartupCheck(
     return { executed: true, success: false, logs: '', failureReason: redactSecrets(message) };
   }
   const timeoutMs = options.timeoutMs ?? 8000;
-  const bin =
-    options.packageManager === 'yarn'
-      ? 'yarn'
-      : options.packageManager === 'pnpm'
-        ? 'pnpm'
-        : options.packageManager === 'bun'
-          ? 'bun'
-          : 'npm';
-  const execBin = process.platform === 'win32' && bin !== 'bun' ? `${bin}.cmd` : bin;
-  const isPosix = process.platform !== 'win32';
+  const invocation = resolveProcessCommand(packageManagerCommand(options.packageManager), [
+    'run',
+    'start',
+  ]);
 
   return new Promise<StartupCheckReport>((resolve) => {
     let logs = '';
     let settled = false;
 
-    // npm/yarn/pnpm expose .cmd shims on Windows; those must be launched
-    // through cmd.exe. The command is allowlisted above and arguments are fixed.
-    const useWindowsCommandShell =
-      process.platform === 'win32' && /^(?:npm|yarn|pnpm)\.cmd$/i.test(execBin);
-
-    const child = spawn(execBin, ['run', 'start'], {
+    const child = spawn(invocation.command, invocation.args, {
       cwd: options.rootDir,
       env: {
         ...process.env,
         PORT: String(port),
         NODE_ENV: 'production',
       },
-      shell: useWindowsCommandShell,
-      detached: isPosix,
+      detached: process.platform !== 'win32',
+      windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

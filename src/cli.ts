@@ -136,18 +136,17 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
   const positional: string[] = [];
   const flags: Record<string, string | boolean> = {};
 
-  const valueFlags = new Set(['platform', 'format', 'fail-on']);
-  if (command === 'verify') valueFlags.add('health-path');
-  const booleanFlags = new Set([
-    'no-color',
-    'non-interactive',
-    'dry-run',
-    'yes',
-    'build',
-    'startup',
-    'no-exec',
-    'allow-exec',
-  ]);
+  const valueFlags = new Set(['platform']);
+  const booleanFlags = new Set(['no-color']);
+  if (command !== 'explain') booleanFlags.add('non-interactive');
+  if (command === 'scan') {
+    valueFlags.add('format').add('fail-on');
+  } else if (command === 'fix') {
+    booleanFlags.add('dry-run').add('yes');
+  } else if (command === 'verify') {
+    valueFlags.add('health-path');
+    booleanFlags.add('build').add('startup').add('no-exec').add('allow-exec');
+  }
 
   for (let i = 0; i < args.length; i++) {
     const token = args[i]!;
@@ -188,7 +187,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
         }
         flags.platform = next;
         i++;
-      } else if (short === 'f') {
+      } else if (short === 'f' && valueFlags.has('format')) {
         const next = args[i + 1];
         if (!next || next.startsWith('-')) {
           io.stderr(`Error: Flag '-f' requires a format value.`);
@@ -196,7 +195,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
         }
         flags.format = next;
         i++;
-      } else if (short === 'y') {
+      } else if (short === 'y' && booleanFlags.has('yes')) {
         flags.yes = true;
       } else {
         io.stderr(`Error: Unknown short flag '-${short}'.`);
@@ -205,6 +204,13 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
     } else {
       positional.push(token);
     }
+  }
+
+  if (positional.length > 1) {
+    io.stderr(
+      `Error: 'drc ${command}' accepts only one target. Run 'drc ${command} --help' for usage.`,
+    );
+    return 2;
   }
 
   const noColor = Boolean(flags['no-color']);

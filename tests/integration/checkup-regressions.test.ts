@@ -49,6 +49,17 @@ describe('Deployment checkup regressions', () => {
     expect(fs.existsSync(path.join(project, 'marker'))).toBe(false);
   });
 
+  it('reports redacted diagnostics from a failing build that logs to stdout', async () => {
+    write('package.json', JSON.stringify({ scripts: { build: 'node build.js' } }));
+    write('build.js', "console.log('Build error\\nAPI_TOKEN=example-value'); process.exit(1);");
+    const result = await invoke('verify', '--build', '--allow-exec');
+    expect(result.code).toBe(1);
+    expect(result.output).toContain('Production build check failed');
+    expect(result.output).toContain('Build error');
+    expect(result.output).toContain('API_TOKEN=[REDACTED]');
+    expect(result.output).not.toContain('example-value');
+  });
+
   it('fails verification and reports syntax errors in all scan formats', async () => {
     write('broken.js', 'const broken = ;');
     const verification = await invoke('verify', '--no-exec');
@@ -176,5 +187,38 @@ describe('Deployment checkup regressions', () => {
     ).toBeUndefined();
     write('vercel.json', '{invalid');
     expect((await invoke('verify')).code).toBe(0);
+  });
+
+  it('generates a runnable Express start command for a JavaScript entry in src', async () => {
+    fs.mkdirSync(path.join(project, 'src'));
+    write(
+      'src/server.js',
+      "require('node:http').createServer((req, res) => res.end('ok')).listen(process.env.PORT);",
+    );
+    for (const scripts of [{ start: 'nodemon src/server.js' }, {}]) {
+      write('package.json', JSON.stringify({ dependencies: { express: '4.19.2' }, scripts }));
+      expect((await invoke('fix', '--yes')).code).toBe(0);
+      const verification = await invoke('verify', '--startup', '--allow-exec');
+      expect(verification.output).toContain('Controlled startup health check succeeded');
+      expect(verification.code).toBe(0);
+    }
+  });
+
+  it('fixes Vite environment reads on the same line without publishing server secrets', async () => {
+    write(
+      'package.json',
+      JSON.stringify({
+        dependencies: { react: '18.0.0', vite: '5.0.0' },
+        scripts: { build: 'vite build' },
+      }),
+    );
+    write(
+      'App.jsx',
+      'const values = [process.env.SERVICE_API_KEY, process.env.VITE_API_URL, process.env.API_URL];',
+    );
+    expect((await invoke('fix', '--yes')).code).toBe(0);
+    expect(fs.readFileSync(path.join(project, 'App.jsx'), 'utf8')).toBe(
+      'const values = [process.env.SERVICE_API_KEY, import.meta.env.VITE_API_URL, import.meta.env.VITE_API_URL];',
+    );
   });
 });
